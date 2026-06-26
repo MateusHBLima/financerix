@@ -254,10 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
   }
 
-  // Attach initial listeners for mock and clear buttons
-  if (btnLoadMock) {
-    btnLoadMock.addEventListener('click', loadMockData);
-  }
+  // Attach initial listeners for clear button
   if (btnClearData) {
     btnClearData.addEventListener('click', clearData);
   }
@@ -274,15 +271,12 @@ document.addEventListener('DOMContentLoaded', () => {
       <span class="drop-zone-text">Solte seu arquivo CSV, OFX ou PDF aqui</span>
       <span class="drop-zone-or">ou</span>
       <div style="display: flex; gap: 8px; justify-content: center; z-index: 10;">
-        <button class="btn btn-secondary" id="btn-load-mock">Usar Dados de Demonstração (Sparo)</button>
         <button class="btn btn-secondary" id="btn-clear-data" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: #ef4444;">Limpar Dados</button>
       </div>
     `;
     
     // Re-bind listeners because elements were recreated
-    const mockBtn = document.getElementById('btn-load-mock');
     const clearBtn = document.getElementById('btn-clear-data');
-    if (mockBtn) mockBtn.addEventListener('click', loadMockData);
     if (clearBtn) clearBtn.addEventListener('click', clearData);
     
     // Hide action bar
@@ -641,25 +635,7 @@ document.addEventListener('DOMContentLoaded', () => {
     parseTextAgently(rawText, 'Texto Colado');
   });
 
-  // Reusable load mock helper
-  async function loadMockData(e) {
-    if (e) e.stopPropagation();
-    try {
-      addLog('[SISTEMA] Solicitando transações de demonstração ao backend...');
-      const response = await fetch('/api/transactions?demo=true');
-      loadedTransactions = sanitizeTransactions(await response.json());
-      
-      addLog(`[SISTEMA] Sucesso! ${loadedTransactions.length} transações de demonstração carregadas.`, 'success-line');
-      updateDropZoneSuccess(loadedTransactions.length);
-      updateDashboard();
-      
-      // Auto-trigger categorization
-      addLog('[SISTEMA] Iniciando categorização automática...');
-      btnCategorize.click();
-    } catch (err) {
-      addLog(`[ERRO] Falha ao carregar transações: ${err.message}`, 'error-line');
-    }
-  }
+
 
   // Drag and Drop File Parser (CSV, OFX, PDF)
   dropZone.addEventListener('dragover', (e) => {

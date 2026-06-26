@@ -331,44 +331,16 @@ const LOCAL_REGEXES = {
 
 // Route to get transactions
 app.get('/api/transactions', async (req, res) => {
-  const isDemo = req.query.demo === 'true';
-  
   if (!useDbFallback && pool) {
     try {
       if (dbInitPromise) await dbInitPromise;
-      if (isDemo) {
-        console.log('Resetting and seeding database with mock transactions...');
-        await pool.query('DELETE FROM transactions');
-        const mockData = loadTransactions();
-        for (const tx of mockData) {
-          await pool.query(
-            'INSERT INTO transactions (date, description, amount, expected_category, actual_category, status) VALUES ($1, $2, $3, $4, $5, $6)',
-            [tx.date, tx.description, tx.amount, tx.expected_category, tx.actual_category || null, tx.status || 'Pendente']
-          );
-        }
-      }
-      
       let result = await pool.query('SELECT * FROM transactions ORDER BY id ASC');
-      if (result.rows.length === 0) {
-        console.log('Database empty. Seeding mock transactions...');
-        const mockData = loadTransactions();
-        for (const tx of mockData) {
-          await pool.query(
-            'INSERT INTO transactions (date, description, amount, expected_category, actual_category, status) VALUES ($1, $2, $3, $4, $5, $6)',
-            [tx.date, tx.description, tx.amount, tx.expected_category, tx.actual_category || null, tx.status || 'Pendente']
-          );
-        }
-        result = await pool.query('SELECT * FROM transactions ORDER BY id ASC');
-      }
       return res.json(result.rows);
     } catch (err) {
       console.warn('Warning: Database query failed. Falling back to in-memory transactions.', err.message);
     }
   }
   
-  if (isDemo || inMemoryTransactions.length === 0) {
-    inMemoryTransactions = loadTransactions();
-  }
   res.json(inMemoryTransactions);
 });
 
