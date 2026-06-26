@@ -1076,5 +1076,76 @@ body {
   .modal-header h3 {
     font-size: 16px;
   }
+
+  /* Bottom Navigation Bar for Mobile */
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background-color: rgba(13, 16, 23, 0.95);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid var(--border-color);
+    z-index: 99;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 8px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+  }
+
+  .bottom-nav-item {
+    background: none;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-family: var(--font-body);
+    font-size: 10px;
+    font-weight: 600;
+    transition: var(--transition);
+    flex: 1;
+    height: 100%;
+    text-decoration: none;
+  }
+
+  .bottom-nav-item svg {
+    transition: var(--transition);
+    color: var(--text-muted);
+  }
+
+  .bottom-nav-item:hover {
+    color: var(--text-main);
+  }
+
+  .bottom-nav-item:hover svg {
+    color: var(--text-main);
+  }
+
+  .bottom-nav-item.active {
+    color: var(--accent-purple);
+  }
+
+  .bottom-nav-item.active svg {
+    color: var(--accent-purple);
+    filter: drop-shadow(0 0 4px var(--accent-purple));
+  }
+
+  /* Add padding to prevent bottom navigation from covering cards */
+  .main-content {
+    padding-bottom: 84px !important;
+  }
 }
+
+/* Hide bottom-nav on desktop */
+.bottom-nav {
+  display: none;
+}
+
 

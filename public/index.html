@@ -28,11 +28,22 @@
       <div class="brand">
         <div class="logo-icon"></div>
         <h1 class="logo-text">FINANCERIX</h1>
-      </div>
-      <nav class="menu">
-        <a href="#" class="menu-item active" id="btn-dashboard">
+            <nav class="menu">
+        <a href="#" class="menu-item active" id="menu-dashboard" data-target="section-dashboard">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
           Dashboard
+        </a>
+        <a href="#" class="menu-item" id="menu-transactions" data-target="section-transactions">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+          Transações
+        </a>
+        <a href="#" class="menu-item" id="menu-planning" data-target="section-planning">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+          Planejamento
+        </a>
+        <a href="#" class="menu-item" id="menu-cashflow" data-target="section-cashflow">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+          Fluxo de Caixa
         </a>
       </nav>
       <div class="sidebar-footer">
@@ -124,165 +135,173 @@
           </div>
         </div>
 
-         <!-- Upper Section: Upload & Charts & Budgets -->
-         <div class="dashboard-grid three-columns">
-           <!-- Upload Card -->
-           <div class="glass-card upload-container">
-             <div class="card-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-               <div class="card-header" style="margin-bottom: 0;">
-                 <h3 class="card-title">Importar Extrato Bancário</h3>
-                 <p class="card-desc">Faça upload de arquivos CSV, OFX ou PDF, ou cole o extrato bruto.</p>
-               </div>
-               <div class="import-tabs" style="display: flex; gap: 8px; background: rgba(255,255,255,0.03); padding: 4px; border-radius: 8px; border: 1px solid var(--border-color);">
-                 <button class="tab-btn active" id="tab-upload" style="background: rgba(255,255,255,0.05); border: none; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: var(--transition);">Arquivo Extrato</button>
-                 <button class="tab-btn" id="tab-paste" style="background: none; border: none; color: var(--text-muted); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: var(--transition);">Colar Texto</button>
-               </div>
-             </div>
- 
-             <!-- Upload File Pane -->
-             <div class="import-pane active" id="pane-upload">
-               <div class="drop-zone" id="drop-zone">
-                 <div class="drop-zone-icon"></div>
-                 <span class="drop-zone-text">Solte seu arquivo CSV, OFX ou PDF aqui</span>
-                 <span class="drop-zone-or">ou</span>
-                 <div class="drop-zone-actions" style="display: flex; gap: 8px; justify-content: center; z-index: 10;">
-                   <button class="btn btn-secondary" id="btn-load-mock">Usar Dados de Demonstração (Sparo)</button>
-                   <button class="btn btn-secondary" id="btn-clear-data" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: #ef4444;">Limpar Dados</button>
-                 </div>
-               </div>
-             </div>
- 
-             <!-- Paste Text Pane -->
-             <div class="import-pane hidden" id="pane-paste">
-               <textarea class="textarea-input" id="paste-area" placeholder="Cole aqui as linhas copiadas do seu extrato Nubank. Exemplo:&#10;25 JUN UBER *TRIP -24.90&#10;26 JUN IFOOD *RESTAURANTE -89.50" style="width: 100%; height: 200px; background: #05070a; border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-main); padding: 16px; font-family: var(--font-mono); font-size: 13px; outline: none; resize: none;"></textarea>
-               <button class="btn btn-secondary" id="btn-parse-paste" style="margin-top: 12px; width: 100%; justify-content: center;">Processar Texto Colado</button>
-             </div>
- 
-             <div class="action-bar hidden" id="action-bar">
-               <span class="tx-count-text" id="tx-count-text">0 transações prontas</span>
-               <button class="btn btn-primary" id="btn-categorize">
-                 <span class="btn-icon-spin hidden" id="spin-categorize"></span>
-                 Categorizar Transações
-               </button>
-             </div>
-           </div>
- 
-           <!-- Chart & Top Merchants Card -->
-           <div class="glass-card chart-container">
-             <div class="card-header">
-               <h3 class="card-title">Distribuição de Despesas</h3>
-               <p class="card-desc">Gastos por categorias após processamento dos agentes.</p>
-             </div>
-             <div class="chart-wrapper">
-               <canvas id="expensesChart"></canvas>
-               <div class="no-chart-data" id="chart-placeholder">
-                 <p>Importe dados para visualizar a análise gráfica</p>
-               </div>
-             </div>
-             
-             <!-- Top Merchants Section -->
-             <div class="top-merchants-section" style="margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 20px;">
-               <h4 style="font-family: var(--font-title); font-size: 14px; font-weight: 600; color: #ffffff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-                 Maiores Gastos por Estabelecimento
-               </h4>
-               <div id="top-merchants-list" style="display: flex; flex-direction: column; gap: 10px;">
-                 <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 12px 0;">Importe dados para visualizar a análise</p>
-               </div>
-             </div>
-           </div>
-
-           <!-- Budgets (Limites Mensais) Card -->
-           <div class="glass-card budget-container">
-             <div class="card-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-               <div class="card-header" style="margin-bottom: 0;">
-                 <h3 class="card-title">Limites de Orçamento</h3>
-                 <p class="card-desc">Planejamento mensal de limites por categoria.</p>
-               </div>
-               <button class="btn btn-secondary btn-sm" id="btn-new-budget" style="font-size: 11px; padding: 6px 12px; border-radius: 8px;">Definir Limite</button>
-             </div>
-             <div class="budget-list" id="budget-list" style="display: flex; flex-direction: column; gap: 14px; margin-top: 16px;">
-               <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 20px 0;">Nenhum orçamento definido para este mês.</p>
-             </div>
-           </div>
-         </div>
-
-        <!-- Lower Section: Transactions Table & Goals/Forecast Column -->
-        <div class="dashboard-grid lower-grid" style="margin-top: 24px;">
-          <!-- Transactions Card -->
-          <div class="glass-card transactions-card" style="margin-bottom: 0;">
-            <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-              <div class="card-header" style="margin-bottom: 0;">
-                <h3 class="card-title">Lançamentos</h3>
-                <p class="card-desc">Lista completa de transações e suas categorias.</p>
-              </div>
-              <div class="table-filters" style="display: flex; gap: 8px; align-items: center;">
-                <select class="select-input" id="filter-category" style="min-width: 140px; background: #05070a; border: 1px solid var(--border-color); color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 500; outline: none; cursor: pointer;">
-                  <option value="Todas">Todas Categorias</option>
-                  <option value="Alimentação">Alimentação</option>
-                  <option value="Transporte">Transporte</option>
-                  <option value="Assinaturas & Serviços">Assinaturas & Serviços</option>
-                  <option value="Supermercado">Supermercado</option>
-                  <option value="Compras">Compras</option>
-                  <option value="Combustível">Combustível</option>
-                  <option value="Saúde">Saúde</option>
-                  <option value="Receitas">Receitas</option>
-                  <option value="Transferências">Transferências</option>
-                  <option value="Lazer & Entretenimento">Lazer & Entretenimento</option>
-                  <option value="Outros">Outros</option>
-                </select>
+        <!-- Upper Row: Chart & Top Merchants -->
+        <div class="dashboard-grid" style="grid-template-columns: 1.2fr 0.8fr;">
+          <!-- Chart Container -->
+          <div class="glass-card chart-container">
+            <div class="card-header">
+              <h3 class="card-title">Distribuição de Despesas</h3>
+              <p class="card-desc">Gastos por categorias após processamento dos agentes.</p>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="expensesChart"></canvas>
+              <div class="no-chart-data" id="chart-placeholder">
+                <p>Importe dados para visualizar a análise gráfica</p>
               </div>
             </div>
-            
-            <div class="table-wrapper">
-              <table class="table" id="transactions-table">
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Descrição</th>
-                    <th>Valor</th>
-                    <th>Categoria</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="table-body">
-                  <tr>
-                    <td colspan="5" class="empty-table">Nenhuma transação carregada. Clique em "Usar Dados de Demonstração" acima.</td>
-                  </tr>
-                </tbody>
-              </table>
+          </div>
+
+          <!-- Top Merchants Section -->
+          <div class="glass-card" style="padding: 28px;">
+            <div class="card-header" style="margin-bottom: 20px;">
+              <h3 class="card-title" style="display: flex; align-items: center; gap: 8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                Maiores Gastos por Estabelecimento
+              </h3>
+              <p class="card-desc">Os 5 locais de maior acúmulo de despesas.</p>
+            </div>
+            <div id="top-merchants-list" style="display: flex; flex-direction: column; gap: 14px;">
+              <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 12px 0;">Importe dados para visualizar a análise</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Transactions View -->
+      <section class="view-section" id="section-transactions" style="display: none;">
+        <!-- Upload Card -->
+        <div class="glass-card upload-container" style="width: 100%;">
+          <div class="card-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <div class="card-header" style="margin-bottom: 0;">
+              <h3 class="card-title">Importar Extrato Bancário</h3>
+              <p class="card-desc">Faça upload de arquivos CSV, OFX ou PDF, ou cole o extrato bruto.</p>
+            </div>
+            <div class="import-tabs" style="display: flex; gap: 8px; background: rgba(255,255,255,0.03); padding: 4px; border-radius: 8px; border: 1px solid var(--border-color);">
+              <button class="tab-btn active" id="tab-upload" style="background: rgba(255,255,255,0.05); border: none; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: var(--transition);">Arquivo Extrato</button>
+              <button class="tab-btn" id="tab-paste" style="background: none; border: none; color: var(--text-muted); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: var(--transition);">Colar Texto</button>
+            </div>
+          </div>
+
+          <!-- Upload File Pane -->
+          <div class="import-pane active" id="pane-upload">
+            <div class="drop-zone" id="drop-zone">
+              <div class="drop-zone-icon"></div>
+              <span class="drop-zone-text">Solte seu arquivo CSV, OFX ou PDF aqui</span>
+              <span class="drop-zone-or">ou</span>
+              <div class="drop-zone-actions" style="display: flex; gap: 8px; justify-content: center; z-index: 10;">
+                <button class="btn btn-secondary" id="btn-load-mock">Usar Dados de Demonstração (Sparo)</button>
+                <button class="btn btn-secondary" id="btn-clear-data" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: #ef4444;">Limpar Dados</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Paste Text Pane -->
+          <div class="import-pane hidden" id="pane-paste">
+            <textarea class="textarea-input" id="paste-area" placeholder="Cole aqui as linhas copiadas do seu extrato Nubank. Exemplo:&#10;25 JUN UBER *TRIP -24.90&#10;26 JUN IFOOD *RESTAURANTE -89.50" style="width: 100%; height: 200px; background: #05070a; border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-main); padding: 16px; font-family: var(--font-mono); font-size: 13px; outline: none; resize: none;"></textarea>
+            <button class="btn btn-secondary" id="btn-parse-paste" style="margin-top: 12px; width: 100%; justify-content: center;">Processar Texto Colado</button>
+          </div>
+
+          <div class="action-bar hidden" id="action-bar">
+            <span class="tx-count-text" id="tx-count-text">0 transações prontas</span>
+            <button class="btn btn-primary" id="btn-categorize">
+              <span class="btn-icon-spin hidden" id="spin-categorize"></span>
+              Categorizar Transações
+            </button>
+          </div>
+        </div>
+
+        <!-- Transactions Card -->
+        <div class="glass-card transactions-card" style="width: 100%; margin-top: 24px;">
+          <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div class="card-header" style="margin-bottom: 0;">
+              <h3 class="card-title">Lançamentos</h3>
+              <p class="card-desc">Lista completa de transações e suas categorias.</p>
+            </div>
+            <div class="table-filters" style="display: flex; gap: 8px; align-items: center;">
+              <select class="select-input" id="filter-category" style="min-width: 140px; background: #05070a; border: 1px solid var(--border-color); color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 500; outline: none; cursor: pointer;">
+                <option value="Todas">Todas Categorias</option>
+                <option value="Alimentação">Alimentação</option>
+                <option value="Transporte">Transporte</option>
+                <option value="Assinaturas & Serviços">Assinaturas & Serviços</option>
+                <option value="Supermercado">Supermercado</option>
+                <option value="Compras">Compras</option>
+                <option value="Combustível">Combustível</option>
+                <option value="Saúde">Saúde</option>
+                <option value="Receitas">Receitas</option>
+                <option value="Transferências">Transferências</option>
+                <option value="Lazer & Entretenimento">Lazer & Entretenimento</option>
+                <option value="Outros">Outros</option>
+              </select>
             </div>
           </div>
           
-          <!-- Column for Goals & Forecast -->
-          <div class="goals-forecast-column" style="display: flex; flex-direction: column; gap: 24px;">
-            <!-- Goals Card -->
-            <div class="glass-card goals-card" style="flex: 1;">
-              <div class="card-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                <div class="card-header" style="margin-bottom: 0;">
-                  <h3 class="card-title">Objetivos (Caixinhas)</h3>
-                  <p class="card-desc">Crie caixinhas para guardar saldo e realizar metas.</p>
-                </div>
-                <button class="btn btn-primary btn-sm" id="btn-new-goal" style="font-size: 11px; padding: 6px 12px; border-radius: 8px;">+ Nova Caixinha</button>
-              </div>
-              <div class="goals-list" id="goals-list" style="display: flex; flex-direction: column; gap: 14px;">
-                <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 12px 0;">Nenhum objetivo cadastrado.</p>
-              </div>
-            </div>
+          <div class="table-wrapper">
+            <table class="table" id="transactions-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Valor</th>
+                  <th>Categoria</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="table-body">
+                <tr>
+                  <td colspan="5" class="empty-table">Nenhuma transação carregada. Selecione os arquivos ou clique em "Usar Dados de Demonstração".</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
-            <!-- Forecast / Recurring Card -->
-            <div class="glass-card forecast-card" style="flex: 1;">
-              <div class="card-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                <div class="card-header" style="margin-bottom: 0;">
-                  <h3 class="card-title">Fluxo de Caixa Futuro</h3>
-                  <p class="card-desc">Projeção do saldo livre para os próximos 30 dias.</p>
-                </div>
-                <button class="btn btn-secondary btn-sm" id="btn-new-recurring" style="font-size: 11px; padding: 6px 12px; border-radius: 8px;">+ Recorrente</button>
+      <!-- Planning View -->
+      <section class="view-section" id="section-planning" style="display: none;">
+        <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr;">
+          <!-- Budgets (Limites Mensais) Card -->
+          <div class="glass-card budget-container">
+            <div class="card-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+              <div class="card-header" style="margin-bottom: 0;">
+                <h3 class="card-title">Limites de Orçamento</h3>
+                <p class="card-desc">Planejamento mensal de limites por categoria.</p>
               </div>
-              <div class="forecast-timeline" id="forecast-timeline" style="display: flex; flex-direction: column; gap: 12px;">
-                <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 12px 0;">Cadastre contas recorrentes para ver a previsão.</p>
-              </div>
+              <button class="btn btn-secondary btn-sm" id="btn-new-budget" style="font-size: 11px; padding: 6px 12px; border-radius: 8px;">Definir Limite</button>
             </div>
+            <div class="budget-list" id="budget-list" style="display: flex; flex-direction: column; gap: 14px; margin-top: 16px;">
+              <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 20px 0;">Nenhum orçamento definido para este mês.</p>
+            </div>
+          </div>
+
+          <!-- Goals Card -->
+          <div class="glass-card goals-card">
+            <div class="card-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+              <div class="card-header" style="margin-bottom: 0;">
+                <h3 class="card-title">Objetivos (Caixinhas)</h3>
+                <p class="card-desc">Crie caixinhas para guardar saldo e realizar metas.</p>
+              </div>
+              <button class="btn btn-primary btn-sm" id="btn-new-goal" style="font-size: 11px; padding: 6px 12px; border-radius: 8px;">+ Nova Caixinha</button>
+            </div>
+            <div class="goals-list" id="goals-list" style="display: flex; flex-direction: column; gap: 14px; margin-top: 16px;">
+              <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 12px 0;">Nenhum objetivo cadastrado.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cashflow View -->
+      <section class="view-section" id="section-cashflow" style="display: none;">
+        <!-- Forecast / Recurring Card -->
+        <div class="glass-card forecast-card" style="width: 100%;">
+          <div class="card-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <div class="card-header" style="margin-bottom: 0;">
+              <h3 class="card-title">Fluxo de Caixa Futuro</h3>
+              <p class="card-desc">Projeção do saldo livre para os próximos 30 dias com base nas contas recorrentes.</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btn-new-recurring" style="font-size: 11px; padding: 6px 12px; border-radius: 8px;">+ Novo Recorrente</button>
+          </div>
+          <div class="forecast-timeline" id="forecast-timeline" style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px;">
+            <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 12px 0;">Cadastre contas recorrentes para ver a previsão.</p>
           </div>
         </div>
       </section>
@@ -413,8 +432,26 @@
       <div class="modal-footer" style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
         <button class="btn btn-secondary" id="btn-cancel-recurring">Cancelar</button>
         <button class="btn btn-primary" id="btn-save-recurring">Salvar Lançamento</button>
-      </div>
     </div>
+  </div>
+  <!-- Mobile Bottom Navigation Bar -->
+  <div class="bottom-nav">
+    <button class="bottom-nav-item active" data-target="section-dashboard">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+      <span>Painel</span>
+    </button>
+    <button class="bottom-nav-item" data-target="section-transactions">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+      <span>Extrato</span>
+    </button>
+    <button class="bottom-nav-item" data-target="section-planning">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+      <span>Metas</span>
+    </button>
+    <button class="bottom-nav-item" data-target="section-cashflow">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+      <span>Futuro</span>
+    </button>
   </div>
 
   <script src="app.js"></script>

@@ -85,6 +85,85 @@ document.addEventListener('DOMContentLoaded', () => {
   let loadedRecurring = [];
   let expensesChart = null;
 
+  // V2 Tab Manager
+  const views = document.querySelectorAll('.view-section');
+  const menuItems = document.querySelectorAll('.menu-item');
+  const bottomNavItems = document.querySelectorAll('.bottom-nav-item');
+  const mainTitle = document.getElementById('main-title');
+  const pageSubtitle = mainTitle ? mainTitle.nextElementSibling : null;
+
+  const tabTitles = {
+    'section-dashboard': {
+      title: 'Visão Geral',
+      desc: 'Monitore e gerencie seus gastos usando inteligência artificial agêntica.'
+    },
+    'section-transactions': {
+      title: 'Extrato & Importação',
+      desc: 'Importe extratos bancários e visualize lançamentos detalhados.'
+    },
+    'section-planning': {
+      title: 'Planejamento Financeiro',
+      desc: 'Defina metas de economia (caixinhas) e gerencie limites de gastos.'
+    },
+    'section-cashflow': {
+      title: 'Fluxo de Caixa Previsto',
+      desc: 'Visualize a projeção do seu saldo para os próximos 30 dias.'
+    }
+  };
+
+  function switchTab(targetId) {
+    views.forEach(v => {
+      v.style.display = 'none';
+      v.classList.remove('active');
+    });
+
+    const activeSection = document.getElementById(targetId);
+    if (activeSection) {
+      activeSection.style.display = 'flex';
+      activeSection.classList.add('active');
+    }
+
+    menuItems.forEach(item => {
+      if (item.getAttribute('data-target') === targetId) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    });
+
+    bottomNavItems.forEach(item => {
+      if (item.getAttribute('data-target') === targetId) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    });
+
+    if (tabTitles[targetId]) {
+      if (mainTitle) mainTitle.textContent = tabTitles[targetId].title;
+      if (pageSubtitle) pageSubtitle.textContent = tabTitles[targetId].desc;
+    }
+  }
+
+  menuItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = item.getAttribute('data-target');
+      if (target) switchTab(target);
+    });
+  });
+
+  bottomNavItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = item.getAttribute('data-target');
+      if (target) switchTab(target);
+    });
+  });
+
+  // Set default view on load
+  switchTab('section-dashboard');
+
   const CATEGORIES = [
     'Alimentação',
     'Transporte',
