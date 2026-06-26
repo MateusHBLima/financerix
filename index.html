@@ -33,14 +33,6 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
           Dashboard
         </a>
-        <a href="#" class="menu-item" id="btn-benchmark">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-          Benchmark de IA
-        </a>
-        <a href="#" class="menu-item" id="btn-logs">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-          Console de Agentes
-        </a>
       </nav>
       <div class="sidebar-footer">
         <div class="antigravity-badge">
@@ -127,7 +119,10 @@
                 <div class="drop-zone-icon"></div>
                 <span class="drop-zone-text">Solte seu arquivo CSV, OFX ou PDF aqui</span>
                 <span class="drop-zone-or">ou</span>
-                <button class="btn btn-secondary" id="btn-load-mock">Usar Dados de Demonstração (Sparo)</button>
+                <div style="display: flex; gap: 8px; justify-content: center; z-index: 10;">
+                  <button class="btn btn-secondary" id="btn-load-mock">Usar Dados de Demonstração (Sparo)</button>
+                  <button class="btn btn-secondary" id="btn-clear-data" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: #ef4444;">Limpar Dados</button>
+                </div>
               </div>
             </div>
 
@@ -141,7 +136,7 @@
               <span class="tx-count-text" id="tx-count-text">0 transações prontas</span>
               <button class="btn btn-primary" id="btn-categorize">
                 <span class="btn-icon-spin hidden" id="spin-categorize"></span>
-                Categorizar com Sub-Agentes
+                Categorizar Transações
               </button>
             </div>
           </div>
@@ -168,17 +163,7 @@
               <h3 class="card-title">Transações</h3>
               <p class="card-desc">Lista completa de lançamentos e suas categorias.</p>
             </div>
-            <div class="agent-filter-wrapper hidden" id="filter-wrapper">
-              <label for="agent-selector-view">Visualizar abordagem:</label>
-              <select id="agent-selector-view" class="select-input">
-                <option value="winner">🥇 Vencedor do Benchmark</option>
-                <option value="local">Subagente Local Code (Regex)</option>
-                <option value="claude">Subagente Claude (Semântica)</option>
-                <option value="gemini">Subagente Gemini (Contexto)</option>
-                <option value="chatgpt">Subagente ChatGPT (Estruturado)</option>
-                <option value="serpapi">Subagente SerpAPI (Web Search)</option>
-              </select>
-            </div>
+            <!-- No agent filter since there is only a single categorization agent -->
           </div>
           
           <div class="table-wrapper">
@@ -202,34 +187,7 @@
         </div>
       </section>
 
-      <!-- Benchmark View -->
-      <section class="view-section" id="section-benchmark">
-        <div class="glass-card">
-          <div class="card-header">
-            <h3 class="card-title">Scorecard do Benchmark de IA</h3>
-            <p class="card-desc">Comparação direta dos 5 subagentes executando em paralelo (Antigravity 2.0).</p>
-          </div>
-          
-          <div class="benchmark-grid" id="benchmark-grid">
-            <div class="no-benchmark-data">
-              <p>Execute a categorização das transações para ver o benchmark de performance dos agentes.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Console / Logs View -->
-      <section class="view-section" id="section-logs">
-        <div class="glass-card console-card">
-          <div class="card-header">
-            <h3 class="card-title">Console de Sub-Agentes Paralelos</h3>
-            <p class="card-desc">Logs de execução em tempo real das threads paralelas do Antigravity.</p>
-          </div>
-          <div class="console-body" id="console-body">
-            <div class="console-line system-line">[SISTEMA] Aguardando inicialização de subagentes...</div>
-          </div>
-        </div>
-      </section>
+      <!-- No benchmark and logs section needed for single agent mode -->
     </main>
   </div>
 
@@ -244,27 +202,12 @@
         <p class="modal-desc" style="font-size: 13px; color: var(--text-muted);">Insira suas chaves de API. Elas serão salvas apenas localmente no seu navegador.</p>
         
         <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
-          <label for="key-gemini" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Gemini API Key (Recomendado para todos os agentes)</label>
+          <label for="key-gemini" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Gemini API Key</label>
           <input type="password" id="key-gemini" class="form-input" placeholder="AIzaSy..." style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
         </div>
         
-        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
-          <label for="key-serpapi" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">SerpAPI Key (Opcional - Usará a Busca Nativa do Gemini se estiver em branco)</label>
-          <input type="password" id="key-serpapi" class="form-input" placeholder="Opcional. Se em branco, usa a busca nativa do Gemini..." style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
-        </div>
-
-        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
-          <label for="key-openai" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">OpenAI API Key (Opcional - Usado pelo Subagente ChatGPT)</label>
-          <input type="password" id="key-openai" class="form-input" placeholder="sk-..." style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
-        </div>
-
-        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
-          <label for="key-anthropic" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Anthropic API Key (Opcional - Usado pelo Subagente Claude)</label>
-          <input type="password" id="key-anthropic" class="form-input" placeholder="sk-ant-..." style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
-        </div>
-        
-        <div class="alert-info" style="font-size: 11px; color: var(--accent-amber); background: rgba(245, 158, 11, 0.05); padding: 12px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.15); line-height: 1.5;">
-          <strong>Nota:</strong> Se você fornecer apenas a chave do <strong>Gemini</strong>, todos os subagentes de IA rodarão o benchmark simulando suas respectivas abordagens utilizando modelos do Gemini (Flash/Pro) sob prompts variados!
+        <div class="alert-info" style="font-size: 11px; color: var(--accent-blue); background: rgba(59, 130, 246, 0.05); padding: 12px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.15); line-height: 1.5;">
+          <strong>Nota:</strong> A chave do <strong>Gemini</strong> será usada de forma segura e direta no seu navegador para realizar a leitura inteligente do extrato e a classificação automática das categorias de transação.
         </div>
       </div>
       <div class="modal-footer" style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">

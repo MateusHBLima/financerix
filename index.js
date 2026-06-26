@@ -1,27 +1,15 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // Navigation elements
-  const btnDashboard = document.getElementById('btn-dashboard');
-  const btnBenchmark = document.getElementById('btn-benchmark');
-  const btnLogs = document.getElementById('btn-logs');
-  
-  const sectionDashboard = document.getElementById('section-dashboard');
-  const sectionBenchmark = document.getElementById('section-benchmark');
-  const sectionLogs = document.getElementById('section-logs');
-  
-  const mainTitle = document.getElementById('main-title');
-  
-  // Dashboard Action elements
+  // UI elements
   const dropZone = document.getElementById('drop-zone');
   const btnLoadMock = document.getElementById('btn-load-mock');
+  const btnClearData = document.getElementById('btn-clear-data');
   const actionBar = document.getElementById('action-bar');
   const txCountText = document.getElementById('tx-count-text');
   const btnCategorize = document.getElementById('btn-categorize');
   const spinCategorize = document.getElementById('spin-categorize');
   
-  // Table and filter elements
-  const filterWrapper = document.getElementById('filter-wrapper');
+  // Table elements
   const tableBody = document.getElementById('table-body');
-  const agentSelectorView = document.getElementById('agent-selector-view');
   
   // KPI elements
   const kpiIncome = document.getElementById('kpi-income');
@@ -31,8 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Chart elements
   const chartPlaceholder = document.getElementById('chart-placeholder');
-  const benchmarkGrid = document.getElementById('benchmark-grid');
-  const consoleBody = document.getElementById('console-body');
 
   // New Tab elements
   const tabUpload = document.getElementById('tab-upload');
@@ -42,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const pasteArea = document.getElementById('paste-area');
   const btnParsePaste = document.getElementById('btn-parse-paste');
 
-  // New Settings Modal elements
+  // Settings Modal elements
   const btnSettings = document.getElementById('btn-settings');
   const settingsModal = document.getElementById('settings-modal');
   const closeSettings = document.getElementById('close-settings');
@@ -50,53 +36,91 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnSaveSettings = document.getElementById('btn-save-settings');
   
   const keyGemini = document.getElementById('key-gemini');
-  const keySerpapi = document.getElementById('key-serpapi');
-  const keyOpenai = document.getElementById('key-openai');
-  const keyAnthropic = document.getElementById('key-anthropic');
   
   // State
   let loadedTransactions = [];
-  let categorizedResults = null;
   let expensesChart = null;
 
   // Load API keys from localStorage
   loadSettings();
 
-  // 1. Navigation View Toggle
-  function switchView(targetSection, targetBtn, title) {
-    document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-    document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active'));
-    
-    targetSection.classList.add('active');
-    targetBtn.classList.add('active');
-    mainTitle.textContent = title;
+  // Attach initial listeners for mock and clear buttons
+  if (btnLoadMock) {
+    btnLoadMock.addEventListener('click', loadMockData);
+  }
+  if (btnClearData) {
+    btnClearData.addEventListener('click', clearData);
   }
 
-  btnDashboard.addEventListener('click', (e) => {
-    e.preventDefault();
-    switchView(sectionDashboard, btnDashboard, 'Visão Geral');
-  });
+  // Reusable drop zone reset
+  function resetDropZoneToDefault() {
+    dropZone.innerHTML = `
+      <div class="drop-zone-icon"></div>
+      <span class="drop-zone-text">Solte seu arquivo CSV, OFX ou PDF aqui</span>
+      <span class="drop-zone-or">ou</span>
+      <div style="display: flex; gap: 8px; justify-content: center; z-index: 10;">
+        <button class="btn btn-secondary" id="btn-load-mock">Usar Dados de Demonstração (Sparo)</button>
+        <button class="btn btn-secondary" id="btn-clear-data" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: #ef4444;">Limpar Dados</button>
+      </div>
+    `;
+    
+    // Re-bind listeners because elements were recreated
+    const mockBtn = document.getElementById('btn-load-mock');
+    const clearBtn = document.getElementById('btn-clear-data');
+    if (mockBtn) mockBtn.addEventListener('click', loadMockData);
+    if (clearBtn) clearBtn.addEventListener('click', clearData);
+    
+    // Hide action bar
+    actionBar.classList.add('hidden');
+  }
 
-  btnBenchmark.addEventListener('click', (e) => {
-    e.preventDefault();
-    switchView(sectionBenchmark, btnBenchmark, 'Benchmark de Sub-Agentes');
-  });
-
-  btnLogs.addEventListener('click', (e) => {
-    e.preventDefault();
-    switchView(sectionLogs, btnLogs, 'Console de Agentes');
-  });
+  async function clearData(e) {
+    if (e) e.stopPropagation();
+    if (!confirm('Tem certeza de que deseja limpar todos os dados das transações?')) {
+      return;
+    }
+    try {
+      addLog('[SISTEMA] Solicitando limpeza de transações ao servidor...');
+      const response = await fetch('/api/transactions/clear', {
+        method: 'POST'
+      });
+      if (!response.ok) {
+        throw new Error('Falha ao limpar transações no servidor.');
+      }
+      
+      // Clear local arrays
+      loadedTransactions = [];
+      if (expensesChart) {
+        expensesChart.destroy();
+        expensesChart = null;
+      }
+      
+      // Reset drop zone to default view
+      resetDropZoneToDefault();
+      
+      // Clear raw table
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="5" class="empty-table">Nenhuma transação carregada. Clique em "Usar Dados de Demonstração" acima.</td>
+        </tr>
+      `;
+      
+      // Reset KPIs
+      resetKPIs();
+      
+      addLog('[SISTEMA] Sucesso! Todas as transações foram limpas do banco de dados e do estado da aplicação.', 'success-line');
+    } catch (err) {
+      addLog(`[ERRO] Falha ao limpar dados: ${err.message}`, 'error-line');
+      alert(`Falha ao limpar dados: ${err.message}`);
+    }
+  }
 
   // Log function helper
   function addLog(text, type = 'system-line') {
-    const line = document.createElement('div');
-    line.className = `console-line ${type}`;
-    line.textContent = text;
-    consoleBody.appendChild(line);
-    consoleBody.scrollTop = consoleBody.scrollHeight;
+    console.log(text);
   }
 
-  // 2. Settings Modal Control
+  // Settings Modal Control
   btnSettings.addEventListener('click', () => {
     loadSettings();
     settingsModal.style.display = 'flex';
@@ -111,19 +135,12 @@ document.addEventListener('DOMContentLoaded', () => {
   
   btnSaveSettings.addEventListener('click', () => {
     localStorage.setItem('key_gemini', keyGemini.value.trim());
-    localStorage.setItem('key_serpapi', keySerpapi.value.trim());
-    localStorage.setItem('key_openai', keyOpenai.value.trim());
-    localStorage.setItem('key_anthropic', keyAnthropic.value.trim());
-    
     addLog('[SISTEMA] Configurações de chaves de API salvas localmente.', 'success-line');
     closeModal();
   });
 
   function loadSettings() {
     keyGemini.value = localStorage.getItem('key_gemini') || '';
-    keySerpapi.value = localStorage.getItem('key_serpapi') || '';
-    keyOpenai.value = localStorage.getItem('key_openai') || '';
-    keyAnthropic.value = localStorage.getItem('key_anthropic') || '';
   }
 
   // 3. Tab Switching
@@ -189,15 +206,29 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error('Nenhuma transação foi identificada pelo agente no texto.');
       }
       
-      loadedTransactions = transactions;
-      addLog(`🛸 [AGENTE GEMINI] Sucesso! ${loadedTransactions.length} transações identificadas e limpas de ruídos.`, 'success-line');
+      // Save parsed transactions to the database
+      addLog(`🛸 [AGENTE GEMINI] Persistindo ${transactions.length} transações no servidor...`);
+      const saveResponse = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(transactions)
+      });
+      
+      if (!saveResponse.ok) {
+        throw new Error('Falha ao persistir transações no banco de dados.');
+      }
+      
+      const persistedTransactions = await saveResponse.json();
+      loadedTransactions = persistedTransactions;
+      addLog(`🛸 [AGENTE GEMINI] Sucesso! ${loadedTransactions.length} transações identificadas, limpas de ruídos e persistidas.`, 'success-line');
       
       updateDropZoneSuccess(loadedTransactions.length);
-      renderRawTable();
-      resetKPIs();
+      updateDashboard();
       
-      // Auto-trigger parallel categorization benchmark
-      addLog('🛸 [AGENTE GEMINI] Iniciando benchmark de categorização automático...');
+      // Auto-trigger categorization
+      addLog('🛸 [AGENTE GEMINI] Iniciando categorização automática...');
       btnCategorize.click();
     } catch (err) {
       addLog(`[ERRO AGENTE] Falha no processador: ${err.message}`, 'error-line');
@@ -205,14 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Reset drop zone UI on error
       if (isUploadTab) {
-        dropZone.innerHTML = `
-          <div class="drop-zone-icon"></div>
-          <span class="drop-zone-text">Solte seu arquivo CSV, OFX ou PDF aqui</span>
-          <span class="drop-zone-or">ou</span>
-          <button class="btn btn-secondary" id="btn-load-mock">Usar Dados de Demonstração (Sparo)</button>
-        `;
-        // Re-attach load mock listener
-        document.getElementById('btn-load-mock').addEventListener('click', loadMockData);
+        resetDropZoneToDefault();
       }
     } finally {
       if (!isUploadTab) {
@@ -237,16 +261,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e) e.stopPropagation();
     try {
       addLog('[SISTEMA] Solicitando transações de demonstração ao backend...');
-      const response = await fetch('/api/transactions');
+      const response = await fetch('/api/transactions?demo=true');
       loadedTransactions = await response.json();
       
       addLog(`[SISTEMA] Sucesso! ${loadedTransactions.length} transações de demonstração carregadas.`, 'success-line');
       updateDropZoneSuccess(loadedTransactions.length);
-      renderRawTable();
-      resetKPIs();
+      updateDashboard();
       
-      // Auto-trigger parallel categorization benchmark
-      addLog('[SISTEMA] Iniciando benchmark de demonstração automático...');
+      // Auto-trigger categorization
+      addLog('[SISTEMA] Iniciando categorização automática...');
       btnCategorize.click();
     } catch (err) {
       addLog(`[ERRO] Falha ao carregar transações: ${err.message}`, 'error-line');
@@ -370,26 +393,41 @@ document.addEventListener('DOMContentLoaded', () => {
     txCountText.textContent = `${count} transações prontas para o Financerix`;
   }
   // Render table
-  function renderRawTable() {
+  function renderTable() {
     tableBody.innerHTML = '';
     loadedTransactions.forEach(tx => {
       const row = document.createElement('tr');
-      const category = tx.expected_category || 'Outros';
+      const category = tx.status === 'Processado' ? (tx.actual_category || 'Outros') : (tx.expected_category || 'Outros');
       const badgeClass = `cat-${category.toLowerCase().split(' ')[0].normalize('NFD').replace(/[\u0300-\u036f]/g, "")}`;
       
+      let statusHtml = '';
+      if (tx.status === 'Processado') {
+        statusHtml = `
+          <span class="status-badge correct">
+            <span class="status-indicator"></span>
+            Processado por IA
+          </span>
+        `;
+      } else {
+        statusHtml = `
+          <span class="status-badge" style="color: var(--accent-amber)">
+            <span class="status-indicator" style="background-color: var(--accent-amber)"></span>
+            Pendente
+          </span>
+        `;
+      }
+
       row.innerHTML = `
         <td>${formatDate(tx.date)}</td>
-        <td>${tx.description}</td>
+        <td>
+          ${tx.description}
+          ${tx.search_log ? `<span class="search-hint">🔍 Google: ${tx.search_log}</span>` : ''}
+        </td>
         <td class="${tx.amount < 0 ? 'text-expense' : 'text-income'}" style="color: ${tx.amount < 0 ? '#ec4899' : '#10b981'}; font-weight: 600;">
           ${formatCurrency(tx.amount)}
         </td>
         <td><span class="category-badge ${badgeClass}">${category}</span></td>
-        <td>
-          <span class="status-badge" style="color: var(--accent-blue)">
-            <span class="status-indicator" style="background-color: var(--accent-blue)"></span>
-            Extraído por Agente
-          </span>
-        </td>
+        <td>${statusHtml}</td>
       `;
       tableBody.appendChild(row);
     });
@@ -402,33 +440,20 @@ document.addEventListener('DOMContentLoaded', () => {
     kpiSavings.textContent = '0%';
   }
 
-  // 7. Process Categorization and Run Benchmark
+  // 7. Process Categorization
   btnCategorize.addEventListener('click', async () => {
     if (loadedTransactions.length === 0) return;
     
     // UI state
     btnCategorize.disabled = true;
     spinCategorize.classList.remove('hidden');
-    addLog('[SISTEMA] Inicializando orquestrador Antigravity 2.0...');
-    addLog('[SISTEMA] Disparando execução paralela dos 5 subagentes de IA: Local Code, Claude, Gemini, ChatGPT, SerpAPI...');
-
-    // Switch to logs view to let user watch the simulation
-    setTimeout(() => {
-      switchView(sectionLogs, btnLogs, 'Console de Agentes');
-    }, 500);
+    addLog('[SISTEMA] Iniciando categorização com Inteligência Artificial...');
 
     try {
-      // Gather keys from localStorage to send in headers
       const geminiKey = localStorage.getItem('key_gemini') || '';
-      const serpapiKey = localStorage.getItem('key_serpapi') || '';
-      const openaiKey = localStorage.getItem('key_openai') || '';
-      const anthropicKey = localStorage.getItem('key_anthropic') || '';
 
       const headers = { 'Content-Type': 'application/json' };
       if (geminiKey) headers['x-gemini-key'] = geminiKey;
-      if (serpapiKey) headers['x-serpapi-key'] = serpapiKey;
-      if (openaiKey) headers['x-openai-key'] = openaiKey;
-      if (anthropicKey) headers['x-anthropic-key'] = anthropicKey;
 
       const response = await fetch('/api/categorize', {
         method: 'POST',
@@ -436,100 +461,35 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ transactions: loadedTransactions })
       });
       
-      categorizedResults = await response.json();
+      if (!response.ok) {
+        throw new Error('Falha no processamento da categorização no servidor.');
+      }
       
-      // Simulate live parallel log printing on the frontend console
-      await simulateConsoleLogs();
-
-      // Show filter, configure default winner view, update graphs and benchmark cards
-      filterWrapper.classList.remove('hidden');
-      updateDashboardData('winner');
-      renderBenchmarkScorecard();
+      const result = await response.json();
+      loadedTransactions = result;
       
-      // Switch back to dashboard view with results ready
-      switchView(sectionDashboard, btnDashboard, 'Visão Geral');
-      addLog('[SISTEMA] Processo concluído com sucesso. Exibindo resultados no painel.', 'success-line');
+      updateDashboard();
+      addLog('[SISTEMA] Categorização concluída com sucesso.', 'success-line');
 
     } catch (err) {
-      addLog(`[ERRO] Ocorreu um erro na execução dos subagentes: ${err.message}`, 'error-line');
+      addLog(`[ERRO] Ocorreu um erro na categorização: ${err.message}`, 'error-line');
+      alert(`Erro na categorização: ${err.message}`);
     } finally {
       btnCategorize.disabled = false;
       spinCategorize.classList.add('hidden');
     }
   });
 
-  // Simulated live parallel log stream
-  async function simulateConsoleLogs() {
-    consoleBody.innerHTML = '';
-    addLog('🛸 [ANTIGRAVITY 2.0] Inicializando subagentes agênticos em paralelo...', 'system-line');
-    
-    // Sort logs by time order of agents
-    const agents = Object.keys(categorizedResults);
-    const allAgentLogs = [];
-    
-    agents.forEach(key => {
-      const agentData = categorizedResults[key];
-      const logLines = agentData.logs;
-      const timePerLine = agentData.executionTimeMs / logLines.length;
-      
-      logLines.forEach((line, idx) => {
-        allAgentLogs.push({
-          text: line,
-          time: (idx + 1) * timePerLine,
-          type: key === 'local' ? 'warn-line' : key === 'serpapi' ? 'success-line' : 'agent-line'
-        });
-      });
-    });
-
-    // Sort logs by their simulated trigger time
-    allAgentLogs.sort((a, b) => a.time - b.time);
-
-    // Stream logs to console
-    for (let i = 0; i < allAgentLogs.length; i++) {
-      const log = allAgentLogs[i];
-      const prevTime = i > 0 ? allAgentLogs[i - 1].time : 0;
-      const delay = Math.max(0, log.time - prevTime);
-      await new Promise(resolve => setTimeout(resolve, delay * 1.5)); // slight slow-down for readability
-      addLog(log.text, log.type);
-    }
-    
-    addLog('🎉 [ANTIGRAVITY 2.0] Execução paralela de todos os subagentes finalizada!', 'success-line');
-  }
-
-  // 8. Update Dashboard view based on selected agent
-  function updateDashboardData(agentKey) {
-    if (!categorizedResults) return;
-
-    let selectedAgentKey = agentKey;
-    if (agentKey === 'winner') {
-      // Find agent with the highest accuracy
-      let bestAccuracy = -1;
-      let winnerKey = 'serpapi';
-      Object.keys(categorizedResults).forEach(key => {
-        if (categorizedResults[key].accuracy > bestAccuracy) {
-          bestAccuracy = categorizedResults[key].accuracy;
-          winnerKey = key;
-        }
-      });
-      selectedAgentKey = winnerKey;
-    }
-
-    const agentData = categorizedResults[selectedAgentKey];
-    const results = agentData.results;
-
-    // A. Update KPIs using the selected agent's results
+  // 8. Update Dashboard KPIs and Charts
+  function updateDashboard() {
     let income = 0;
     let expenses = 0;
 
-    results.forEach(tx => {
-      // find original transaction to get amount
-      const origTx = loadedTransactions.find(t => t.id === tx.id);
-      if (origTx) {
-        if (origTx.amount > 0) {
-          income += origTx.amount;
-        } else {
-          expenses += Math.abs(origTx.amount);
-        }
+    loadedTransactions.forEach(tx => {
+      if (tx.amount > 0) {
+        income += tx.amount;
+      } else {
+        expenses += Math.abs(tx.amount);
       }
     });
 
@@ -541,53 +501,21 @@ document.addEventListener('DOMContentLoaded', () => {
     kpiBalance.textContent = formatCurrency(balance);
     kpiSavings.textContent = `${savingsRate}%`;
 
-    // B. Render Table
-    tableBody.innerHTML = '';
-    results.forEach(tx => {
-      const origTx = loadedTransactions.find(t => t.id === tx.id);
-      const row = document.createElement('tr');
-      
-      const badgeClass = `cat-${tx.category.toLowerCase().split(' ')[0].normalize('NFD').replace(/[\u0300-\u036f]/g, "")}`;
-      
-      row.innerHTML = `
-        <td>${formatDate(origTx.date)}</td>
-        <td>
-          ${tx.description}
-          ${tx.searchLog ? `<span class="search-hint">🔍 SerpAPI: ${tx.searchLog}</span>` : ''}
-        </td>
-        <td style="color: ${origTx.amount < 0 ? '#ec4899' : '#10b981'}; font-weight: 600;">
-          ${formatCurrency(origTx.amount)}
-        </td>
-        <td><span class="category-badge ${badgeClass}">${tx.category}</span></td>
-        <td>
-          <span class="status-badge ${tx.isCorrect ? 'correct' : 'incorrect'}">
-            <span class="status-indicator"></span>
-            ${tx.isCorrect ? 'Correto' : `Incorreto (Esperado: ${tx.expected})`}
-          </span>
-        </td>
-      `;
-      tableBody.appendChild(row);
-    });
-
-    // C. Render Chart
-    renderChart(results);
+    // Render table and chart
+    renderTable();
+    renderChart(loadedTransactions);
   }
 
-  // Handle agent view filter changes
-  agentSelectorView.addEventListener('change', (e) => {
-    updateDashboardData(e.target.value);
-  });
-
   // 9. Render Expense Distribution Chart
-  function renderChart(results) {
+  function renderChart(transactionsList) {
     chartPlaceholder.classList.add('hidden');
     
     // Group expense data
     const categoriesMap = {};
-    results.forEach(tx => {
-      const origTx = loadedTransactions.find(t => t.id === tx.id);
-      if (origTx && origTx.amount < 0) {
-        categoriesMap[tx.category] = (categoriesMap[tx.category] || 0) + Math.abs(origTx.amount);
+    transactionsList.forEach(tx => {
+      const category = tx.status === 'Processado' ? (tx.actual_category || 'Outros') : (tx.expected_category || 'Outros');
+      if (tx.amount < 0) {
+        categoriesMap[category] = (categoriesMap[category] || 0) + Math.abs(tx.amount);
       }
     });
 
@@ -599,7 +527,10 @@ document.addEventListener('DOMContentLoaded', () => {
       expensesChart.destroy();
     }
 
-    const ctx = document.getElementById('expensesChart').getContext('2d');
+    const chartEl = document.getElementById('expensesChart');
+    if (!chartEl) return;
+    
+    const ctx = chartEl.getContext('2d');
     expensesChart = new Chart(ctx, {
       type: 'doughnut',
       data: {
@@ -636,68 +567,6 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         cutout: '70%'
       }
-    });
-  }
-
-  // 10. Render Benchmark Scorecard View
-  function renderBenchmarkScorecard() {
-    if (!categorizedResults) return;
-
-    benchmarkGrid.innerHTML = '';
-
-    // Find winner key
-    let bestAccuracy = -1;
-    let winnerKey = '';
-    Object.keys(categorizedResults).forEach(key => {
-      if (categorizedResults[key].accuracy > bestAccuracy) {
-        bestAccuracy = categorizedResults[key].accuracy;
-        winnerKey = key;
-      }
-    });
-
-    Object.keys(categorizedResults).forEach(key => {
-      const data = categorizedResults[key];
-      const isWinner = key === winnerKey;
-      
-      const card = document.createElement('div');
-      card.className = `benchmark-card ${isWinner ? 'winner' : ''}`;
-      
-      card.innerHTML = `
-        <h4 class="agent-title">${data.name}</h4>
-        
-        <div class="metric-row">
-          <span class="metric-label">Acurácia:</span>
-          <span class="metric-value" style="color: ${isWinner ? 'var(--accent-emerald)' : 'var(--text-main)'}; font-weight: 700;">
-            ${data.accuracy}%
-          </span>
-        </div>
-        
-        <div class="accuracy-bar-container">
-          <div class="accuracy-bar bar-${key}" style="width: ${data.accuracy}%"></div>
-        </div>
-        
-        <div class="metric-row">
-          <span class="metric-label">Tempo de Resposta:</span>
-          <span class="metric-value">${data.executionTimeMs} ms</span>
-        </div>
-        
-        <div class="metric-row">
-          <span class="metric-label">Custo Estimado:</span>
-          <span class="metric-value">$${data.totalCost.toFixed(5)}</span>
-        </div>
-
-        <div class="metric-row" style="font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 10px;">
-          <span>Observação técnica:</span>
-          <span style="font-style: italic;">
-            ${key === 'local' ? 'Ultra-rápido, mas falha em nomes complexos.' : ''}
-            ${key === 'claude' ? 'Lógica robusta, preço premium.' : ''}
-            ${key === 'gemini' ? 'Excelente velocidade, custo muito baixo.' : ''}
-            ${key === 'chatgpt' ? 'Estrutura JSON sólida, tempo médio.' : ''}
-            ${key === 'serpapi' ? 'Acurácia máxima. Resolve enigmas via Google.' : ''}
-          </span>
-        </div>
-      `;
-      benchmarkGrid.appendChild(card);
     });
   }
 

@@ -1,12 +1,44 @@
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+let pool = null;
+let useDbFallback = true;
+let inMemoryTransactions = [];
+
+// Try to initialize PostgreSQL pool if DATABASE_URL is configured
+if (process.env.DATABASE_URL) {
+  try {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }
+    });
+    // Test the connection
+    pool.query('SELECT NOW()', (err, res) => {
+      if (err) {
+        console.warn('Warning: PostgreSQL connection test failed. Falling back to mock data / in-memory storage.', err.message);
+        useDbFallback = true;
+      } else {
+        console.log('PostgreSQL connection test successful. Using database persistence.');
+        useDbFallback = false;
+      }
+    });
+  } catch (error) {
+    console.warn('Warning: Failed to initialize PostgreSQL Pool. Falling back to mock data / in-memory storage.', error.message);
+    useDbFallback = true;
+  }
+} else {
+  console.warn('Warning: DATABASE_URL not configured. Falling back to mock data / in-memory storage.');
+  useDbFallback = true;
+}
+
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname)));
 
 // Helper to make HTTPS requests using native Node.js
@@ -80,8 +112,7 @@ async function callGeminiWithSearch(apiKey, prompt, systemInstruction = null) {
   const body = {
     contents,
     generationConfig: {
-      temperature: 0.1,
-      responseMimeType: "application/json"
+      temperature: 0.1
     },
     tools: [
       {
@@ -112,8 +143,21 @@ async function callGeminiWithSearch(apiKey, prompt, systemInstruction = null) {
     }
   } catch (e) {}
 
+  // Parse JSON manually from the text since responseMimeType is not json
+  let results = null;
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      results = JSON.parse(jsonMatch[0]);
+    } else {
+      results = JSON.parse(text);
+    }
+  } catch (err) {
+    throw new Error("Failed to parse JSON from Gemini Search Grounding response: " + err.message + "\nRaw response: " + text);
+  }
+
   return {
-    results: JSON.parse(text),
+    results: results,
     searchQueries: searchQueries
   };
 }
@@ -210,6 +254,9 @@ function loadTransactions() {
   return [];
 }
 
+// Initialize inMemoryTransactions
+inMemoryTransactions = loadTransactions();
+
 // Local regex rules for Heuristic classification
 const LOCAL_REGEXES = {
   'UBER': 'Transporte',
@@ -247,9 +294,91 @@ const LOCAL_REGEXES = {
 };
 
 // Route to get transactions
-app.get('/api/transactions', (req, res) => {
-  const transactions = loadTransactions();
-  res.json(transactions);
+app.get('/api/transactions', async (req, res) => {
+  const isDemo = req.query.demo === 'true';
+  
+  if (!useDbFallback && pool) {
+    try {
+      if (isDemo) {
+        console.log('Resetting and seeding database with mock transactions...');
+        await pool.query('DELETE FROM transactions');
+        const mockData = loadTransactions();
+        for (const tx of mockData) {
+          await pool.query(
+            'INSERT INTO transactions (date, description, amount, expected_category, actual_category, status) VALUES ($1, $2, $3, $4, $5, $6)',
+            [tx.date, tx.description, tx.amount, tx.expected_category, tx.actual_category || null, tx.status || 'Pendente']
+          );
+        }
+      }
+      
+      let result = await pool.query('SELECT * FROM transactions ORDER BY id ASC');
+      if (result.rows.length === 0) {
+        console.log('Database empty. Seeding mock transactions...');
+        const mockData = loadTransactions();
+        for (const tx of mockData) {
+          await pool.query(
+            'INSERT INTO transactions (date, description, amount, expected_category, actual_category, status) VALUES ($1, $2, $3, $4, $5, $6)',
+            [tx.date, tx.description, tx.amount, tx.expected_category, tx.actual_category || null, tx.status || 'Pendente']
+          );
+        }
+        result = await pool.query('SELECT * FROM transactions ORDER BY id ASC');
+      }
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database query failed. Falling back to in-memory transactions.', err.message);
+    }
+  }
+  
+  if (isDemo || inMemoryTransactions.length === 0) {
+    inMemoryTransactions = loadTransactions();
+  }
+  res.json(inMemoryTransactions);
+});
+
+// Route to save transactions (overwrite existing)
+app.post('/api/transactions', async (req, res) => {
+  const transactions = req.body;
+  if (!Array.isArray(transactions)) {
+    return res.status(400).json({ error: 'Data must be a JSON array of transactions.' });
+  }
+
+  if (!useDbFallback && pool) {
+    try {
+      await pool.query('DELETE FROM transactions');
+      for (const tx of transactions) {
+        await pool.query(
+          'INSERT INTO transactions (date, description, amount, expected_category, actual_category, status) VALUES ($1, $2, $3, $4, $5, $6)',
+          [tx.date, tx.description, tx.amount, tx.expected_category, tx.actual_category || null, tx.status || 'Pendente']
+        );
+      }
+      const result = await pool.query('SELECT * FROM transactions ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Failed to save to database. Falling back to in-memory.', err.message);
+    }
+  }
+
+  inMemoryTransactions = transactions.map((tx, idx) => ({
+    ...tx,
+    id: tx.id || (idx + 1),
+    status: tx.status || 'Pendente'
+  }));
+  res.json(inMemoryTransactions);
+});
+
+// Route to clear transactions
+app.post('/api/transactions/clear', async (req, res) => {
+  if (!useDbFallback && pool) {
+    try {
+      await pool.query('DELETE FROM transactions');
+      return res.json({ message: 'Database transactions cleared successfully.' });
+    } catch (err) {
+      console.warn('Warning: Database clear failed. Falling back to in-memory.', err.message);
+    }
+  }
+
+  inMemoryTransactions = [];
+  res.json({ message: 'In-memory transactions cleared successfully.' });
 });
 
 // Route to run categorization benchmark
@@ -259,25 +388,18 @@ app.post('/api/categorize', async (req, res) => {
     return res.status(400).json({ error: 'Lista de transações inválida.' });
   }
 
-  // Get keys from request headers
-  const keys = {
-    gemini: req.headers['x-gemini-key'] || null,
-    serpapi: req.headers['x-serpapi-key'] || null,
-    openai: req.headers['x-openai-key'] || null,
-    anthropic: req.headers['x-anthropic-key'] || null
-  };
+  // Get key from request headers or process.env
+  const geminiKey = req.headers['x-gemini-key'] || process.env.GEMINI_API_KEY || null;
+  const isRealAiMode = !!geminiKey;
 
-  const isRealAiMode = !!keys.gemini;
-
-  // Prompts for classification
   const categoriesList = '[Alimentação, Transporte, Assinaturas & Serviços, Supermercado, Compras, Combustível, Saúde, Receitas, Transferências, Lazer & Entretenimento, Outros]';
-  const getPrompt = (txs) => `
+  const prompt = `
     Você é um assistente financeiro de IA especializado na categorização de extratos de cartões de crédito e extratos bancários no mercado brasileiro.
     Analise a descrição de cada transação abaixo e atribua a categoria correta estritamente dentre as seguintes opções:
     ${categoriesList}
 
     Transações:
-    ${JSON.stringify(txs.map(t => ({ id: t.id, description: t.description })))}
+    ${JSON.stringify(transactions.map(t => ({ id: t.id, description: t.description })))}
 
     Responda EXCLUSIVAMENTE em formato JSON puro, contendo um objeto com a chave "results", que é uma lista de objetos contendo "id" e "category". Exemplo de saída:
     {
@@ -287,347 +409,78 @@ app.post('/api/categorize', async (req, res) => {
     }
   `;
 
-  const runAgent = async (agentKey) => {
-    const results = [];
-    const logs = [];
-    let correctCount = 0;
-    let executionTimeMs = 0;
-    let totalCost = 0;
-    const start = Date.now();
-
-    // A. Local Code Heuristic (Regex) - Always runs locally
-    if (agentKey === 'local') {
-      logs.push(`[Subagente Local Code] Iniciando varredura Heurística com Regex...`);
-      transactions.forEach(tx => {
-        let category = 'Outros';
-        const matchKey = Object.keys(LOCAL_REGEXES).find(k => 
-          new RegExp('\\b' + k, 'i').test(tx.description)
-        );
-        if (matchKey) {
-          category = LOCAL_REGEXES[matchKey];
-        } else {
-          logs.push(`[Local Code] Falha no regex para: "${tx.description}". Definido como "Outros".`);
-        }
-        
-        const isCorrect = category === tx.expected_category;
-        if (isCorrect) correctCount++;
-        results.push({ id: tx.id, description: tx.description, category, isCorrect, expected: tx.expected_category });
-      });
-      executionTimeMs = Date.now() - start;
-      totalCost = transactions.length * 0.00001;
-      const accuracy = parseFloat(((correctCount / transactions.length) * 100).toFixed(1));
-      logs.push(`[Subagente Local Code] Concluído em ${executionTimeMs}ms. Acurácia: ${accuracy}%. Custo: $${totalCost.toFixed(5)}`);
-      return { agentKey, name: 'Subagente Local Code (Regex)', executionTimeMs, accuracy, totalCost, results, logs };
-    }
-
-    // B. If not in real AI mode (No Gemini Key provided), fallback to mock simulation
-    if (!isRealAiMode) {
-      const mockProfiles = {
-        claude: { name: 'Subagente Claude (Semântica)', speedMin: 400, speedMax: 700, cost: 0.0015, accuracy: 85.7 },
-        gemini: { name: 'Subagente Gemini (Contexto)', speedMin: 300, speedMax: 500, cost: 0.0005, accuracy: 85.7 },
-        chatgpt: { name: 'Subagente ChatGPT (Estruturado)', speedMin: 500, speedMax: 800, cost: 0.0010, accuracy: 85.7 },
-        serpapi: { name: 'Subagente SerpAPI (Web Search)', speedMin: 1200, speedMax: 1800, cost: 0.0030, accuracy: 100.0 }
-      };
-      const profile = mockProfiles[agentKey];
-      const delay = Math.floor(Math.random() * (profile.speedMax - profile.speedMin)) + profile.speedMin;
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
-      logs.push(`[${profile.name}] (MODO DEMO) Iniciando análise com base em regras simuladas...`);
-      
-      // Load mock classifications
-      const rules = {
-        'UBER *TRIP BR': 'Transporte',
-        'IFOOD *RESTAURANTE': 'Alimentação',
-        'NETFLIX.COM': 'Assinaturas & Serviços',
-        'SUPERMERCADO PHOENIX': 'Supermercado',
-        'MERCADOLIVRE *COMPRA': 'Compras',
-        'POSTO IPIRANGA GNV': 'Combustível',
-        'DRA ANA CLINICA': 'Saúde',
-        'PIX Recebido SALARIO': 'Receitas',
-        'AMZN Mktp Br': 'Compras',
-        'PIX Enviado JOAO SILVA': 'Transferências',
-        'IFD*MAISSAUDAVEL': agentKey === 'serpapi' || agentKey === 'gemini' ? 'Alimentação' : 'Outros',
-        'DM *CARDIOVALE': agentKey === 'serpapi' || agentKey === 'chatgpt' ? 'Saúde' : 'Outros',
-        'PG *CINEART BH': agentKey === 'serpapi' || agentKey === 'claude' || agentKey === 'chatgpt' ? 'Lazer & Entretenimento' : 'Outros',
-        'BOULANGERIE DU PARC': agentKey === 'serpapi' || agentKey === 'claude' || agentKey === 'gemini' ? 'Alimentação' : 'Outros'
-      };
-
-      transactions.forEach(tx => {
-        const category = rules[tx.description] || 'Outros';
-        let searchLog = null;
-        if (agentKey === 'serpapi' && ['IFD*MAISSAUDAVEL', 'DM *CARDIOVALE', 'PG *CINEART BH', 'BOULANGERIE DU PARC'].includes(tx.description)) {
-          searchLog = `Buscando na Web por "${tx.description}"... Encontrado resultado: categorizado como "${category}".`;
-          logs.push(`[SerpAPI Web Search] 🔍 ${searchLog}`);
-        }
-        const isCorrect = category === tx.expected_category;
-        if (isCorrect) correctCount++;
-        results.push({ id: tx.id, description: tx.description, category, isCorrect, expected: tx.expected_category, searchLog });
-      });
-
-      executionTimeMs = delay;
-      totalCost = transactions.length * profile.cost;
-      const accuracy = profile.accuracy;
-      logs.push(`[${profile.name}] Concluído em ${executionTimeMs}ms. Acurácia: ${accuracy}%. Custo: $${totalCost.toFixed(5)}`);
-      return { agentKey, name: profile.name, executionTimeMs, accuracy, totalCost, results, logs };
-    }
-
-    // C. REAL AI MODE (Gemini Key present)
+  const results = [];
+  
+  if (isRealAiMode) {
     try {
-      if (agentKey === 'gemini') {
-        logs.push(`[Subagente Gemini] Enviando ${transactions.length} transações para o Gemini 2.5 Flash...`);
-        const sysInstruction = `Você categoriza extratos. Retorne estritamente JSON. Escolha entre: ${categoriesList}`;
-        const aiResponse = await callGemini(keys.gemini, getPrompt(transactions), sysInstruction);
-        
-        const aiMap = {};
-        if (aiResponse && aiResponse.results) {
-          aiResponse.results.forEach(r => { aiMap[r.id] = r.category; });
-        }
-
-        transactions.forEach(tx => {
-          const category = aiMap[tx.id] || 'Outros';
-          const isCorrect = category === tx.expected_category;
-          if (isCorrect) correctCount++;
-          results.push({ id: tx.id, description: tx.description, category, isCorrect, expected: tx.expected_category });
-        });
-        executionTimeMs = Date.now() - start;
-        totalCost = transactions.length * 0.00015; // Actual pricing approximation
-        const accuracy = parseFloat(((correctCount / transactions.length) * 100).toFixed(1));
-        logs.push(`[Subagente Gemini] Concluído em ${executionTimeMs}ms. Acurácia: ${accuracy}%. Custo: $${totalCost.toFixed(5)}`);
-        return { agentKey, name: 'Subagente Gemini (Contexto)', executionTimeMs, accuracy, totalCost, results, logs };
+      console.log(`Sending ${transactions.length} transactions to Gemini for categorization...`);
+      const sysInstruction = `Você categoriza extratos. Retorne estritamente JSON. Escolha entre: ${categoriesList}`;
+      const aiResponse = await callGemini(geminiKey, prompt, sysInstruction);
+      
+      const aiMap = {};
+      if (aiResponse && aiResponse.results) {
+        aiResponse.results.forEach(r => { aiMap[r.id] = r.category; });
       }
 
-      if (agentKey === 'chatgpt') {
-        let aiResponse;
-        if (keys.openai) {
-          logs.push(`[Subagente ChatGPT] Enviando transações para a API da OpenAI (gpt-4o-mini)...`);
-          const sysPrompt = `Você categoriza extratos em JSON. Escolha estritamente entre: ${categoriesList}`;
-          aiResponse = await callOpenAI(keys.openai, getPrompt(transactions), sysPrompt);
-          totalCost = transactions.length * 0.00030;
-        } else {
-          logs.push(`[Subagente ChatGPT] ℹ️ OpenAI Key indisponível. Simulando abordagem ChatGPT usando o Gemini...`);
-          const sysInstruction = `Você é o ChatGPT. Categorize as transações de forma estruturada. Escolha estritamente entre: ${categoriesList}`;
-          aiResponse = await callGemini(keys.gemini, getPrompt(transactions), sysInstruction);
-          totalCost = transactions.length * 0.00015;
-        }
-        
-        const aiMap = {};
-        if (aiResponse && aiResponse.results) {
-          aiResponse.results.forEach(r => { aiMap[r.id] = r.category; });
-        }
-
-        transactions.forEach(tx => {
-          const category = aiMap[tx.id] || 'Outros';
-          const isCorrect = category === tx.expected_category;
-          if (isCorrect) correctCount++;
-          results.push({ id: tx.id, description: tx.description, category, isCorrect, expected: tx.expected_category });
+      transactions.forEach(tx => {
+        const category = aiMap[tx.id] || 'Outros';
+        results.push({
+          ...tx,
+          actual_category: category,
+          status: 'Processado'
         });
-        executionTimeMs = Date.now() - start;
-        const accuracy = parseFloat(((correctCount / transactions.length) * 100).toFixed(1));
-        logs.push(`[Subagente ChatGPT] Concluído em ${executionTimeMs}ms. Acurácia: ${accuracy}%. Custo: $${totalCost.toFixed(5)}`);
-        return { agentKey, name: 'Subagente ChatGPT (Estruturado)', executionTimeMs, accuracy, totalCost, results, logs };
-      }
-
-      if (agentKey === 'claude') {
-        let aiResponse;
-        if (keys.anthropic) {
-          logs.push(`[Subagente Claude] Enviando transações para a API da Anthropic (claude-3-5-haiku)...`);
-          const sysPrompt = `Você é o Claude. Analise com semântica rigorosa. Categorize e retorne JSON. Escolha estritamente entre: ${categoriesList}`;
-          aiResponse = await callAnthropic(keys.anthropic, getPrompt(transactions), sysPrompt);
-          totalCost = transactions.length * 0.00080;
-        } else {
-          logs.push(`[Subagente Claude] ℹ️ Anthropic Key indisponível. Simulando abordagem Claude usando o Gemini...`);
-          const sysInstruction = `Você é o Claude 3.5 Sonnet. Categorize com base em lógica semântica rígida. Escolha estritamente entre: ${categoriesList}`;
-          aiResponse = await callGemini(keys.gemini, getPrompt(transactions), sysInstruction);
-          totalCost = transactions.length * 0.00015;
-        }
-
-        const aiMap = {};
-        if (aiResponse && aiResponse.results) {
-          aiResponse.results.forEach(r => { aiMap[r.id] = r.category; });
-        }
-
-        transactions.forEach(tx => {
-          const category = aiMap[tx.id] || 'Outros';
-          const isCorrect = category === tx.expected_category;
-          if (isCorrect) correctCount++;
-          results.push({ id: tx.id, description: tx.description, category, isCorrect, expected: tx.expected_category });
-        });
-        executionTimeMs = Date.now() - start;
-        const accuracy = parseFloat(((correctCount / transactions.length) * 100).toFixed(1));
-        logs.push(`[Subagente Claude] Concluído em ${executionTimeMs}ms. Acurácia: ${accuracy}%. Custo: $${totalCost.toFixed(5)}`);
-        return { agentKey, name: 'Subagente Claude (Semântica)', executionTimeMs, accuracy, totalCost, results, logs };
-      }
-
-      if (agentKey === 'serpapi') {
-        let name = 'Subagente SerpAPI (Web Search)';
-        
-        // A. NATIVE GEMINI GOOGLE SEARCH RETRIEVAL (No SerpAPI Key, but Gemini Key present)
-        if (!keys.serpapi && keys.gemini) {
-          name = 'Subagente Gemini (Busca Web)';
-          logs.push(`[Subagente Gemini (Busca Web)] Iniciando processamento com Google Search Grounding nativo...`);
-          
-          let aiResponse = null;
-          let searchQueries = [];
-          
-          try {
-            logs.push(`[Gemini Busca Web] Enviando transações para o Gemini 2.5 Flash com busca web ativa...`);
-            const sysInstruction = `Você é um assistente especialista. Categorize cada transação e use a ferramenta de busca do Google para obter o contexto de qualquer estabelecimento desconhecido ou abreviado. Retorne estritamente JSON. Escolha entre: ${categoriesList}`;
-            const aiResult = await callGeminiWithSearch(keys.gemini, getPrompt(transactions), sysInstruction);
-            aiResponse = aiResult.results;
-            searchQueries = aiResult.searchQueries;
-            
-            if (searchQueries && searchQueries.length > 0) {
-              logs.push(`[Gemini Busca Web] 🔍 Realizou buscas no Google por: ${searchQueries.join(', ')}`);
-            } else {
-              logs.push(`[Gemini Busca Web] Nenhuma busca no Google foi necessária.`);
-            }
-          } catch (err) {
-            logs.push(`[Gemini Busca Web] ⚠️ Falha na chamada da API: ${err.message}`);
-            throw err;
-          }
-
-          const aiMap = {};
-          if (aiResponse && aiResponse.results) {
-            aiResponse.results.forEach(r => { aiMap[r.id] = r.category; });
-          }
-
-          transactions.forEach(tx => {
-            const category = aiMap[tx.id] || 'Outros';
-            const isCorrect = category === tx.expected_category;
-            if (isCorrect) correctCount++;
-            
-            let searchLog = null;
-            if (searchQueries && searchQueries.length > 0) {
-              // Mark searchLog for matched entries
-              const lowerDesc = tx.description.toLowerCase();
-              if (searchQueries.some(q => lowerDesc.includes(q.toLowerCase()) || q.toLowerCase().includes(lowerDesc))) {
-                searchLog = `Buscado via Google Search Grounding nativo.`;
-              }
-            }
-
-            results.push({ 
-              id: tx.id, 
-              description: tx.description, 
-              category, 
-              isCorrect, 
-              expected: tx.expected_category,
-              searchLog: searchLog
-            });
-          });
-
-          executionTimeMs = Date.now() - start;
-          totalCost = transactions.length * 0.00015;
-          const accuracy = parseFloat(((correctCount / transactions.length) * 100).toFixed(1));
-          logs.push(`[Subagente Gemini (Busca Web)] Concluído em ${executionTimeMs}ms. Acurácia: ${accuracy}%. Custo: $${totalCost.toFixed(5)}`);
-          return { agentKey, name, executionTimeMs, accuracy, totalCost, results, logs };
-        }
-
-        // B. STANDARD SERPAPI WEB SEARCH (SerpAPI Key present)
-        logs.push(`[Subagente SerpAPI] Iniciando processamento com Busca Web (SerpAPI)...`);
-        const searchResultsContext = [];
-        
-        for (const tx of transactions) {
-          let searchLog = null;
-          let webContext = '';
-
-          const isCryptic = !Object.keys(LOCAL_REGEXES).some(k => new RegExp('\\b' + k, 'i').test(tx.description));
-          
-          if (isCryptic && keys.serpapi) {
-            try {
-              logs.push(`[SerpAPI] 🔍 Buscando no Google por "${tx.description}"...`);
-              webContext = await searchWeb(keys.serpapi, tx.description);
-              searchLog = `Resultados Google coletados com sucesso.`;
-              logs.push(`[SerpAPI] Sucesso! Informações da web extraídas.`);
-            } catch (err) {
-              logs.push(`[SerpAPI] ⚠️ Falha na busca para "${tx.description}": ${err.message}`);
-              webContext = 'Erro na busca.';
-            }
-          } else if (isCryptic) {
-            searchLog = `Simulando busca para: "${tx.description}". (SerpAPI Key ausente)`;
-            logs.push(`[SerpAPI] 🔍 ${searchLog}`);
-            
-            const mockWebSnippets = {
-              'IFD*MAISSAUDAVEL': 'iFood - Restaurante Mais Saudável Grelhados e Saladas',
-              'DM *CARDIOVALE': 'Cardiovale Clínica Médica e Cardiológica Especializada',
-              'PG *CINEART BH': 'Cineart Cinemas Shopping Del Rey Belo Horizonte',
-              'BOULANGERIE DU PARC': 'Boulangerie du Parque Padaria e Cafeteria Francesa'
-            };
-            webContext = mockWebSnippets[tx.description] || 'Estabelecimento comercial no Brasil.';
-          }
-
-          searchResultsContext.push({
-            id: tx.id,
-            description: tx.description,
-            webContext: webContext,
-            searchLog: searchLog
-          });
-        }
-
-        const promptWithWeb = `
-          Você é um assistente financeiro especialista. Categorize cada transação abaixo.
-          Desta vez, além do nome da transação, fornecemos um contexto adicional obtido através de pesquisas no Google para ajudar a identificar estabelecimentos desconhecidos ou abreviados.
-          
-          Categorias válidas:
-          ${categoriesList}
-
-          Transações e Contextos da Web:
-          ${JSON.stringify(searchResultsContext.map(t => ({ id: t.id, description: t.description, google_context: t.webContext })))}
-
-          Responda exclusivamente em formato JSON contendo um objeto com a chave "results", que é uma lista contendo "id" e "category". Exemplo:
-          {
-            "results": [
-              { "id": 1, "category": "Alimentação" }
-            ]
-          }
-        `;
-
-        const aiResponse = await callGemini(keys.gemini, promptWithWeb, "Você categoriza transações baseado em buscas web. Retorne JSON.");
-        const aiMap = {};
-        if (aiResponse && aiResponse.results) {
-          aiResponse.results.forEach(r => { aiMap[r.id] = r.category; });
-        }
-
-        transactions.forEach(tx => {
-          const category = aiMap[tx.id] || 'Outros';
-          const sContext = searchResultsContext.find(s => s.id === tx.id);
-          const isCorrect = category === tx.expected_category;
-          if (isCorrect) correctCount++;
-          results.push({ 
-            id: tx.id, 
-            description: tx.description, 
-            category, 
-            isCorrect, 
-            expected: tx.expected_category,
-            searchLog: sContext ? sContext.searchLog : null
-          });
-        });
-
-        executionTimeMs = Date.now() - start;
-        totalCost = transactions.length * (keys.serpapi ? 0.0050 : 0.00030);
-        const accuracy = parseFloat(((correctCount / transactions.length) * 100).toFixed(1));
-        logs.push(`[Subagente SerpAPI] Concluído em ${executionTimeMs}ms. Acurácia: ${accuracy}%. Custo: $${totalCost.toFixed(5)}`);
-        return { agentKey, name, executionTimeMs, accuracy, totalCost, results, logs };
-      }
+      });
     } catch (e) {
-      logs.push(`[ERRO - ${agentKey}] Falha na chamada da API: ${e.message}`);
-      return { agentKey, name: agentKey, executionTimeMs: 0, accuracy: 0, totalCost: 0, results: [], logs };
+      console.error('Gemini categorization failed, falling back to local heuristic...', e.message);
+      // Fallback below
     }
-  };
-
-  try {
-    // Run all agents concurrently in parallel
-    const promises = ['local', 'claude', 'gemini', 'chatgpt', 'serpapi'].map(key => runAgent(key));
-    const benchmarkResults = await Promise.all(promises);
-
-    const responseData = {};
-    benchmarkResults.forEach(res => {
-      responseData[res.agentKey] = res;
-    });
-
-    res.json(responseData);
-  } catch (error) {
-    res.status(500).json({ error: 'Erro no processamento dos subagentes: ' + error.message });
   }
+
+  // If fallback is needed (not in AI mode or AI call failed)
+  if (results.length === 0) {
+    console.log('Running heuristic regex categorization fallback...');
+    transactions.forEach(tx => {
+      let category = 'Outros';
+      const matchKey = Object.keys(LOCAL_REGEXES).find(k => 
+        new RegExp('\\b' + k, 'i').test(tx.description)
+      );
+      if (matchKey) {
+        category = LOCAL_REGEXES[matchKey];
+      }
+      
+      results.push({
+        ...tx,
+        actual_category: category,
+        status: 'Processado'
+      });
+    });
+  }
+
+  // Persist categorizations in the database
+  if (!useDbFallback && pool) {
+    try {
+      for (const tx of results) {
+        await pool.query(
+          'UPDATE transactions SET actual_category = $1, status = $2 WHERE id = $3',
+          [tx.actual_category, 'Processado', tx.id]
+        );
+      }
+      console.log('Saved categorizations to the database.');
+    } catch (err) {
+      console.warn('Warning: Failed to save categorizations to database.', err.message);
+    }
+  }
+
+  // Also update the in-memory array for fallback consistency
+  results.forEach(tx => {
+    const localTx = inMemoryTransactions.find(t => t.id === tx.id);
+    if (localTx) {
+      localTx.actual_category = tx.actual_category;
+      localTx.status = 'Processado';
+    }
+  });
+
+  res.json(results);
 });
 
 app.post('/api/parse-statement', async (req, res) => {
@@ -686,3 +539,6 @@ app.post('/api/parse-statement', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Servidor Financerix rodando em http://localhost:${PORT}`);
 });
+
+module.exports = app;
+
