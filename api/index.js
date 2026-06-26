@@ -39,7 +39,7 @@ if (process.env.DATABASE_URL) {
 }
 
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, '..')));
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Helper to make HTTPS requests using native Node.js
 function requestHttps(url, method, headers = {}, body = null) {
@@ -247,7 +247,7 @@ async function searchWeb(apiKey, query) {
 
 // Helper to load mock transactions
 function loadTransactions() {
-  const filePath = path.join(__dirname, '../mock_data.json');
+  const filePath = path.join(__dirname, '../public/mock_data.json');
   if (fs.existsSync(filePath)) {
     return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
   }
