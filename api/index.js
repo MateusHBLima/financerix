@@ -11,6 +11,7 @@ const PORT = process.env.PORT || 3000;
 let pool = null;
 let useDbFallback = true;
 let inMemoryTransactions = [];
+let dbInitPromise = null;
 
 // Try to initialize PostgreSQL pool if DATABASE_URL is configured
 if (process.env.DATABASE_URL) {
@@ -19,32 +20,29 @@ if (process.env.DATABASE_URL) {
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }
     });
-    // Test the connection and ensure table exists
-    pool.query('SELECT NOW()', async (err, res) => {
-      if (err) {
-        console.warn('Warning: PostgreSQL connection test failed. Falling back to mock data / in-memory storage.', err.message);
-        useDbFallback = true;
-      } else {
-        console.log('PostgreSQL connection test successful. Using database persistence.');
-        useDbFallback = false;
-        try {
-          await pool.query(`
-            CREATE TABLE IF NOT EXISTS transactions (
-              id SERIAL PRIMARY KEY,
-              date VARCHAR(10) NOT NULL,
-              description VARCHAR(255) NOT NULL,
-              amount DECIMAL(10, 2) NOT NULL,
-              expected_category VARCHAR(100) NOT NULL,
-              actual_category VARCHAR(100),
-              status VARCHAR(50) DEFAULT 'Pendente'
-            );
-          `);
-          console.log('Table "transactions" ensured in PostgreSQL database.');
-        } catch (tableErr) {
-          console.error('Error creating/verifying "transactions" table:', tableErr.message);
-        }
+    
+    useDbFallback = false;
+    
+    // Create a promise for table verification to prevent race conditions in serverless functions
+    dbInitPromise = (async () => {
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS transactions (
+            id SERIAL PRIMARY KEY,
+            date VARCHAR(10) NOT NULL,
+            description VARCHAR(255) NOT NULL,
+            amount DECIMAL(10, 2) NOT NULL,
+            expected_category VARCHAR(100) NOT NULL,
+            actual_category VARCHAR(100),
+            status VARCHAR(50) DEFAULT 'Pendente'
+          );
+        `);
+        console.log('Table "transactions" ensured in PostgreSQL database.');
+      } catch (err) {
+        console.error('Error creating/verifying "transactions" table:', err.message);
+        useDbFallback = true; // Fallback if table creation failed
       }
-    });
+    })();
   } catch (error) {
     console.warn('Warning: Failed to initialize PostgreSQL Pool. Falling back to mock data / in-memory storage.', error.message);
     useDbFallback = true;
@@ -315,6 +313,7 @@ app.get('/api/transactions', async (req, res) => {
   
   if (!useDbFallback && pool) {
     try {
+      if (dbInitPromise) await dbInitPromise;
       if (isDemo) {
         console.log('Resetting and seeding database with mock transactions...');
         await pool.query('DELETE FROM transactions');
@@ -360,6 +359,7 @@ app.post('/api/transactions', async (req, res) => {
 
   if (!useDbFallback && pool) {
     try {
+      if (dbInitPromise) await dbInitPromise;
       await pool.query('DELETE FROM transactions');
       for (const tx of transactions) {
         await pool.query(
@@ -386,6 +386,7 @@ app.post('/api/transactions', async (req, res) => {
 app.post('/api/transactions/clear', async (req, res) => {
   if (!useDbFallback && pool) {
     try {
+      if (dbInitPromise) await dbInitPromise;
       await pool.query('DELETE FROM transactions');
       return res.json({ message: 'Database transactions cleared successfully.' });
     } catch (err) {
@@ -475,6 +476,7 @@ app.post('/api/categorize', async (req, res) => {
   // Persist categorizations in the database
   if (!useDbFallback && pool) {
     try {
+      if (dbInitPromise) await dbInitPromise;
       for (const tx of results) {
         await pool.query(
           'UPDATE transactions SET actual_category = $1, status = $2 WHERE id = $3',
