@@ -43,6 +43,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load API keys from localStorage
   loadSettings();
+  loadSavedTransactions();
+
+  // Load saved transactions on page load
+  async function loadSavedTransactions() {
+    try {
+      addLog('[SISTEMA] Carregando transações salvas do servidor...');
+      const response = await fetch('/api/transactions');
+      if (response.ok) {
+        const data = await response.json();
+        loadedTransactions = sanitizeTransactions(data);
+        if (loadedTransactions.length > 0) {
+          addLog(`[SISTEMA] Sucesso! ${loadedTransactions.length} transações salvas carregadas.`, 'success-line');
+          updateDropZoneSuccess(loadedTransactions.length);
+          updateDashboard();
+        } else {
+          addLog('[SISTEMA] Nenhum dado salvo encontrado no servidor.');
+        }
+      } else {
+        addLog('[SISTEMA] Falha ao carregar transações salvas (banco offline).');
+      }
+    } catch (err) {
+      addLog(`[ERRO] Falha ao carregar transações salvas: ${err.message}`, 'error-line');
+    }
+  }
+
+  // Sanitize transactions (parse string decimals to floats)
+  function sanitizeTransactions(txs) {
+    if (!Array.isArray(txs)) return [];
+    return txs.map(tx => ({
+      ...tx,
+      amount: typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount
+    }));
+  }
 
   // Attach initial listeners for mock and clear buttons
   if (btnLoadMock) {
@@ -221,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       const persistedTransactions = await saveResponse.json();
-      loadedTransactions = persistedTransactions;
+      loadedTransactions = sanitizeTransactions(persistedTransactions);
       addLog(`🛸 [AGENTE GEMINI] Sucesso! ${loadedTransactions.length} transações identificadas, limpas de ruídos e persistidas.`, 'success-line');
       
       updateDropZoneSuccess(loadedTransactions.length);
@@ -262,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       addLog('[SISTEMA] Solicitando transações de demonstração ao backend...');
       const response = await fetch('/api/transactions?demo=true');
-      loadedTransactions = await response.json();
+      loadedTransactions = sanitizeTransactions(await response.json());
       
       addLog(`[SISTEMA] Sucesso! ${loadedTransactions.length} transações de demonstração carregadas.`, 'success-line');
       updateDropZoneSuccess(loadedTransactions.length);
@@ -466,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       const result = await response.json();
-      loadedTransactions = result;
+      loadedTransactions = sanitizeTransactions(result);
       
       updateDashboard();
       addLog('[SISTEMA] Categorização concluída com sucesso.', 'success-line');
