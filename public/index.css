@@ -897,3 +897,179 @@ body {
   to { transform: translateY(0); opacity: 1; }
 }
 
+/* Mobile-only brand block, hidden on desktop */
+.mobile-brand {
+  display: none;
+}
+
+/* Mobile responsiveness styles */
+@media (max-width: 768px) {
+  .app-container {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    display: none; /* Hide desktop sidebar */
+  }
+
+  .main-content {
+    height: auto;
+    overflow-y: visible;
+  }
+
+  .topbar {
+    padding: 16px 20px;
+    background-color: rgba(8, 10, 15, 0.85); /* Slightly darker for better contrast */
+  }
+
+  .page-title-area {
+    display: none; /* Hide page title in topbar on mobile */
+  }
+
+  .mobile-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .mobile-brand .logo-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .mobile-brand .logo-text {
+    font-family: var(--font-title);
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    background: linear-gradient(135deg, #ffffff 30%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .user-profile {
+    padding: 4px;
+    border-radius: 50%;
+  }
+
+  .profile-info {
+    display: none; /* Hide avatar name and role to save space */
+  }
+
+  .view-section {
+    padding: 20px 16px 40px 16px;
+    gap: 20px;
+  }
+
+  /* KPI Grid responsive adjustments */
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr); /* 2 columns for KPIs */
+    gap: 10px;
+  }
+
+  .kpi-card {
+    padding: 12px 14px;
+    gap: 10px;
+    border-radius: 12px;
+  }
+
+  .kpi-icon {
+    width: 36px;
+    height: 36px;
+    background-size: 16px;
+  }
+
+  .kpi-label {
+    font-size: 11px;
+  }
+
+  .kpi-value {
+    font-size: 15px;
+    word-break: break-word;
+  }
+
+  /* Dashboard grids */
+  .dashboard-grid {
+    grid-template-columns: 1fr; /* Stack charts and dropzone */
+    gap: 20px;
+  }
+
+  .glass-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  /* Drop zone action buttons */
+  .drop-zone {
+    padding: 24px 16px;
+    min-height: 150px;
+  }
+
+  .drop-zone-text {
+    font-size: 14px;
+  }
+
+  .drop-zone-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .drop-zone-actions .btn {
+    width: 100%;
+    justify-content: center;
+    font-size: 13px;
+    padding: 10px;
+  }
+
+  /* Action bar elements */
+  .action-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .action-bar .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .chart-wrapper {
+    height: 220px;
+  }
+
+  /* Table responsive styling */
+  .card-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .table-wrapper {
+    margin: 0 -16px; /* Let it touch the edge of screen and show scroll indicator */
+    width: calc(100% + 32px);
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  .table th, .table td {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  /* Modal responsiveness */
+  .modal-content {
+    padding: 20px;
+    border-radius: 16px;
+  }
+  
+  .modal-header h3 {
+    font-size: 16px;
+  }
+}
+
