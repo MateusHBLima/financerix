@@ -1,0 +1,100 @@
+[
+  {
+    "id": 1,
+    "date": "2026-06-01",
+    "description": "UBER *TRIP BR",
+    "amount": -24.90,
+    "expected_category": "Transporte"
+  },
+  {
+    "id": 2,
+    "date": "2026-06-02",
+    "description": "IFOOD *RESTAURANTE",
+    "amount": -89.50,
+    "expected_category": "Alimentação"
+  },
+  {
+    "id": 3,
+    "date": "2026-06-03",
+    "description": "NETFLIX.COM",
+    "amount": -55.90,
+    "expected_category": "Assinaturas & Serviços"
+  },
+  {
+    "id": 4,
+    "date": "2026-06-05",
+    "description": "SUPERMERCADO PHOENIX",
+    "amount": -342.15,
+    "expected_category": "Supermercado"
+  },
+  {
+    "id": 5,
+    "date": "2026-06-06",
+    "description": "MERCADOLIVRE *COMPRA",
+    "amount": -120.00,
+    "expected_category": "Compras"
+  },
+  {
+    "id": 6,
+    "date": "2026-06-08",
+    "description": "POSTO IPIRANGA GNV",
+    "amount": -150.00,
+    "expected_category": "Combustível"
+  },
+  {
+    "id": 7,
+    "date": "2026-06-09",
+    "description": "DRA ANA CLINICA",
+    "amount": -250.00,
+    "expected_category": "Saúde"
+  },
+  {
+    "id": 8,
+    "date": "2026-06-10",
+    "description": "PIX Recebido SALARIO",
+    "amount": 5400.00,
+    "expected_category": "Receitas"
+  },
+  {
+    "id": 9,
+    "date": "2026-06-12",
+    "description": "AMZN Mktp Br",
+    "amount": -79.90,
+    "expected_category": "Compras"
+  },
+  {
+    "id": 10,
+    "date": "2026-06-15",
+    "description": "IFD*MAISSAUDAVEL",
+    "amount": -42.00,
+    "expected_category": "Alimentação"
+  },
+  {
+    "id": 11,
+    "date": "2026-06-16",
+    "description": "DM *CARDIOVALE",
+    "amount": -380.00,
+    "expected_category": "Saúde"
+  },
+  {
+    "id": 12,
+    "date": "2026-06-17",
+    "description": "PG *CINEART BH",
+    "amount": -64.00,
+    "expected_category": "Lazer & Entretenimento"
+  },
+  {
+    "id": 13,
+    "date": "2026-06-18",
+    "description": "BOULANGERIE DU PARC",
+    "amount": -35.60,
+    "expected_category": "Alimentação"
+  },
+  {
+    "id": 14,
+    "date": "2026-06-20",
+    "description": "PIX Enviado JOAO SILVA",
+    "amount": -100.00,
+    "expected_category": "Transferências"
+  }
+]

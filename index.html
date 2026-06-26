@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Financerix - Controle Financeiro Inteligente com Antigravity Sub-Agentes</title>
+  <meta name="description" content="Dashboard premium de finanças pessoais com categorização automática usando subagentes em paralelo no Antigravity 2.0.">
+  
+  <!-- Fontes Premium -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Estilos da Aplicação -->
+  <link rel="stylesheet" href="index.css">
+  
+  <!-- Chart.js para gráficos interativos -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- PDF.js para leitura de extratos em PDF no frontend -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo-icon"></div>
+        <h1 class="logo-text">FINANCERIX</h1>
+      </div>
+      <nav class="menu">
+        <a href="#" class="menu-item active" id="btn-dashboard">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+          Dashboard
+        </a>
+        <a href="#" class="menu-item" id="btn-benchmark">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          Benchmark de IA
+        </a>
+        <a href="#" class="menu-item" id="btn-logs">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          Console de Agentes
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="antigravity-badge">
+          <span class="pulse-dot"></span>
+          Antigravity 2.0 Ativo
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Topbar -->
+      <header class="topbar">
+        <div class="page-title-area">
+          <h2 class="page-title" id="main-title">Visão Geral</h2>
+          <p class="page-subtitle">Monitore e gerencie seus gastos usando inteligência artificial agêntica.</p>
+        </div>
+        <div class="topbar-actions" style="display: flex; align-items: center; gap: 16px;">
+          <button class="btn-icon" id="btn-settings" title="Configurações de API" style="background: none; border: 1px solid var(--border-color); color: var(--text-muted); cursor: pointer; padding: 8px; border-radius: 8px; transition: var(--transition); display: flex; align-items: center; justify-content: center;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </button>
+          <div class="user-profile">
+            <div class="profile-avatar">MB</div>
+            <div class="profile-info">
+              <span class="profile-name">Mateus Brignoli</span>
+              <span class="profile-role">Fundador (Sparo)</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Dashboard View -->
+      <section class="view-section active" id="section-dashboard">
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-icon total-income"></div>
+            <div class="kpi-content">
+              <span class="kpi-label">Receita Mensal</span>
+              <h3 class="kpi-value" id="kpi-income">R$ 0,00</h3>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon total-expenses"></div>
+            <div class="kpi-content">
+              <span class="kpi-label">Despesas Mensais</span>
+              <h3 class="kpi-value" id="kpi-expenses">R$ 0,00</h3>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon balance"></div>
+            <div class="kpi-content">
+              <span class="kpi-label">Saldo Líquido</span>
+              <h3 class="kpi-value" id="kpi-balance">R$ 0,00</h3>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon savings-rate"></div>
+            <div class="kpi-content">
+              <span class="kpi-label">Taxa de Poupança</span>
+              <h3 class="kpi-value" id="kpi-savings">0%</h3>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upper Section: Upload & Charts -->
+        <div class="dashboard-grid">
+          <!-- Upload Card -->
+          <div class="glass-card upload-container">
+            <div class="card-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+              <div class="card-header" style="margin-bottom: 0;">
+                <h3 class="card-title">Importar Extrato Bancário</h3>
+                <p class="card-desc">Faça upload de arquivos CSV, OFX ou PDF, ou cole o extrato bruto.</p>
+              </div>
+              <div class="import-tabs" style="display: flex; gap: 8px; background: rgba(255,255,255,0.03); padding: 4px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <button class="tab-btn active" id="tab-upload" style="background: rgba(255,255,255,0.05); border: none; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: var(--transition);">Arquivo Extrato</button>
+                <button class="tab-btn" id="tab-paste" style="background: none; border: none; color: var(--text-muted); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: var(--transition);">Colar Texto</button>
+              </div>
+            </div>
+
+            <!-- Upload File Pane -->
+            <div class="import-pane active" id="pane-upload">
+              <div class="drop-zone" id="drop-zone">
+                <div class="drop-zone-icon"></div>
+                <span class="drop-zone-text">Solte seu arquivo CSV, OFX ou PDF aqui</span>
+                <span class="drop-zone-or">ou</span>
+                <button class="btn btn-secondary" id="btn-load-mock">Usar Dados de Demonstração (Sparo)</button>
+              </div>
+            </div>
+
+            <!-- Paste Text Pane -->
+            <div class="import-pane hidden" id="pane-paste">
+              <textarea class="textarea-input" id="paste-area" placeholder="Cole aqui as linhas copiadas do seu extrato Nubank. Exemplo:&#10;25 JUN UBER *TRIP -24.90&#10;26 JUN IFOOD *RESTAURANTE -89.50" style="width: 100%; height: 200px; background: #05070a; border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-main); padding: 16px; font-family: var(--font-mono); font-size: 13px; outline: none; resize: none;"></textarea>
+              <button class="btn btn-secondary" id="btn-parse-paste" style="margin-top: 12px; width: 100%; justify-content: center;">Processar Texto Colado</button>
+            </div>
+
+            <div class="action-bar hidden" id="action-bar">
+              <span class="tx-count-text" id="tx-count-text">0 transações prontas</span>
+              <button class="btn btn-primary" id="btn-categorize">
+                <span class="btn-icon-spin hidden" id="spin-categorize"></span>
+                Categorizar com Sub-Agentes
+              </button>
+            </div>
+          </div>
+
+          <!-- Chart Card -->
+          <div class="glass-card chart-container">
+            <div class="card-header">
+              <h3 class="card-title">Distribuição de Despesas</h3>
+              <p class="card-desc">Gastos por categorias após processamento dos agentes.</p>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="expensesChart"></canvas>
+              <div class="no-chart-data" id="chart-placeholder">
+                <p>Importe dados para visualizar a análise gráfica</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lower Section: Transactions Table -->
+        <div class="glass-card transactions-card">
+          <div class="card-header-row">
+            <div class="card-header">
+              <h3 class="card-title">Transações</h3>
+              <p class="card-desc">Lista completa de lançamentos e suas categorias.</p>
+            </div>
+            <div class="agent-filter-wrapper hidden" id="filter-wrapper">
+              <label for="agent-selector-view">Visualizar abordagem:</label>
+              <select id="agent-selector-view" class="select-input">
+                <option value="winner">🥇 Vencedor do Benchmark</option>
+                <option value="local">Subagente Local Code (Regex)</option>
+                <option value="claude">Subagente Claude (Semântica)</option>
+                <option value="gemini">Subagente Gemini (Contexto)</option>
+                <option value="chatgpt">Subagente ChatGPT (Estruturado)</option>
+                <option value="serpapi">Subagente SerpAPI (Web Search)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="table-wrapper">
+            <table class="table" id="transactions-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Valor</th>
+                  <th>Categoria</th>
+                  <th>Método/Status</th>
+                </tr>
+              </thead>
+              <tbody id="table-body">
+                <tr>
+                  <td colspan="5" class="empty-table">Nenhuma transação carregada. Clique em "Usar Dados de Demonstração" acima.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Benchmark View -->
+      <section class="view-section" id="section-benchmark">
+        <div class="glass-card">
+          <div class="card-header">
+            <h3 class="card-title">Scorecard do Benchmark de IA</h3>
+            <p class="card-desc">Comparação direta dos 5 subagentes executando em paralelo (Antigravity 2.0).</p>
+          </div>
+          
+          <div class="benchmark-grid" id="benchmark-grid">
+            <div class="no-benchmark-data">
+              <p>Execute a categorização das transações para ver o benchmark de performance dos agentes.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Console / Logs View -->
+      <section class="view-section" id="section-logs">
+        <div class="glass-card console-card">
+          <div class="card-header">
+            <h3 class="card-title">Console de Sub-Agentes Paralelos</h3>
+            <p class="card-desc">Logs de execução em tempo real das threads paralelas do Antigravity.</p>
+          </div>
+          <div class="console-body" id="console-body">
+            <div class="console-line system-line">[SISTEMA] Aguardando inicialização de subagentes...</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal" id="settings-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); z-index: 100; align-items: center; justify-content: center;">
+    <div class="modal-content" style="background: #0d1017; border: 1px solid var(--border-color); border-radius: 20px; padding: 32px; width: 500px; max-width: 90%; box-shadow: var(--box-shadow); animation: slideIn 0.3s ease-out;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 class="modal-title" style="font-family: var(--font-title); font-size: 18px; font-weight: 600; color: #ffffff;">Configurações de API</h3>
+        <button class="close-modal" id="close-settings" style="background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer;">&times;</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+        <p class="modal-desc" style="font-size: 13px; color: var(--text-muted);">Insira suas chaves de API. Elas serão salvas apenas localmente no seu navegador.</p>
+        
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="key-gemini" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Gemini API Key (Recomendado para todos os agentes)</label>
+          <input type="password" id="key-gemini" class="form-input" placeholder="AIzaSy..." style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
+        </div>
+        
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="key-serpapi" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">SerpAPI Key (Opcional - Usará a Busca Nativa do Gemini se estiver em branco)</label>
+          <input type="password" id="key-serpapi" class="form-input" placeholder="Opcional. Se em branco, usa a busca nativa do Gemini..." style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
+        </div>
+
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="key-openai" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">OpenAI API Key (Opcional - Usado pelo Subagente ChatGPT)</label>
+          <input type="password" id="key-openai" class="form-input" placeholder="sk-..." style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
+        </div>
+
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="key-anthropic" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Anthropic API Key (Opcional - Usado pelo Subagente Claude)</label>
+          <input type="password" id="key-anthropic" class="form-input" placeholder="sk-ant-..." style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
+        </div>
+        
+        <div class="alert-info" style="font-size: 11px; color: var(--accent-amber); background: rgba(245, 158, 11, 0.05); padding: 12px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.15); line-height: 1.5;">
+          <strong>Nota:</strong> Se você fornecer apenas a chave do <strong>Gemini</strong>, todos os subagentes de IA rodarão o benchmark simulando suas respectivas abordagens utilizando modelos do Gemini (Flash/Pro) sob prompts variados!
+        </div>
+      </div>
+      <div class="modal-footer" style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+        <button class="btn btn-secondary" id="btn-cancel-settings">Cancelar</button>
+        <button class="btn btn-primary" id="btn-save-settings">Salvar Configurações</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="index.js"></script>
+</body>
+</html>
