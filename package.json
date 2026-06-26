@@ -2,9 +2,9 @@
   "name": "financerix-app",
   "version": "1.0.0",
   "description": "Financerix personal finance app with parallel sub-agents transaction categorization",
-  "main": "server.js",
+  "main": "api/index.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node api/index.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
