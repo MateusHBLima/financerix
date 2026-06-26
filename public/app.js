@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   // UI elements
   const dropZone = document.getElementById('drop-zone');
-  const btnLoadMock = document.getElementById('btn-load-mock');
   const btnClearData = document.getElementById('btn-clear-data');
   const actionBar = document.getElementById('action-bar');
   const txCountText = document.getElementById('tx-count-text');
@@ -310,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Clear table
       tableBody.innerHTML = `
         <tr>
-          <td colspan="5" class="empty-table">Nenhuma transação carregada. Clique em "Usar Dados de Demonstração" acima.</td>
+          <td colspan="5" class="empty-table">Nenhuma transação carregada. Importe um extrato para começar.</td>
         </tr>
       `;
       

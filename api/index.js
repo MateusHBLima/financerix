@@ -66,11 +66,11 @@ if (process.env.DATABASE_URL) {
       }
     })();
   } catch (error) {
-    console.warn('Warning: Failed to initialize PostgreSQL Pool. Falling back to mock data / in-memory storage.', error.message);
+    console.warn('Warning: Failed to initialize PostgreSQL Pool. Falling back to in-memory storage.', error.message);
     useDbFallback = true;
   }
 } else {
-  console.warn('Warning: DATABASE_URL not configured. Falling back to mock data / in-memory storage.');
+  console.warn('Warning: DATABASE_URL not configured. Falling back to in-memory storage.');
   useDbFallback = true;
 }
 
@@ -281,17 +281,8 @@ async function searchWeb(apiKey, query) {
   return snippets || 'Nenhum resultado de pesquisa encontrado no Google.';
 }
 
-// Helper to load mock transactions
-function loadTransactions() {
-  const filePath = path.join(__dirname, '../public/mock_data.json');
-  if (fs.existsSync(filePath)) {
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-  }
-  return [];
-}
-
 // Initialize inMemoryTransactions
-inMemoryTransactions = loadTransactions();
+inMemoryTransactions = [];
 
 // Local regex rules for Heuristic classification
 const LOCAL_REGEXES = {
