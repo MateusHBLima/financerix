@@ -1,15 +1,15 @@
 {
   "name": "financerix-app",
   "version": "1.0.0",
-  "description": "Financerix personal finance app with parallel sub-agents transaction categorization",
-  "main": "api/index.js",
+  "description": "Financerix - Controle financeiro inteligente com categorização por IA",
+  "private": true,
   "scripts": {
+    "dev": "node api/index.js",
     "start": "node api/index.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "pg": "^8.11.5"
-  },
-  "private": true
+  }
 }
