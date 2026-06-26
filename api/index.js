@@ -36,10 +36,32 @@ if (process.env.DATABASE_URL) {
             actual_category VARCHAR(100),
             status VARCHAR(50) DEFAULT 'Pendente'
           );
+
+          CREATE TABLE IF NOT EXISTS goals (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            target_amount DECIMAL(10, 2) NOT NULL,
+            current_amount DECIMAL(10, 2) DEFAULT 0.00,
+            target_date VARCHAR(10)
+          );
+
+          CREATE TABLE IF NOT EXISTS budgets (
+            id SERIAL PRIMARY KEY,
+            category VARCHAR(100) NOT NULL UNIQUE,
+            limit_amount DECIMAL(10, 2) NOT NULL
+          );
+
+          CREATE TABLE IF NOT EXISTS recurring_bills (
+            id SERIAL PRIMARY KEY,
+            description VARCHAR(255) NOT NULL,
+            amount DECIMAL(10, 2) NOT NULL,
+            due_day INT NOT NULL,
+            type VARCHAR(50) NOT NULL
+          );
         `);
-        console.log('Table "transactions" ensured in PostgreSQL database.');
+        console.log('Tables "transactions", "goals", "budgets" and "recurring_bills" ensured in PostgreSQL database.');
       } catch (err) {
-        console.error('Error creating/verifying "transactions" table:', err.message);
+        console.error('Error creating/verifying database tables:', err.message);
         useDbFallback = true; // Fallback if table creation failed
       }
     })();
@@ -396,6 +418,281 @@ app.post('/api/transactions/clear', async (req, res) => {
 
   inMemoryTransactions = [];
   res.json({ message: 'In-memory transactions cleared successfully.' });
+});
+
+// ----------------------------------------------------
+// V2 ENDPOINTS: RECATEGORIZAÇÃO, GOALS, BUDGETS, RECURRING
+// ----------------------------------------------------
+
+// Route to manually recategorize a transaction
+app.put('/api/transactions/:id/category', async (req, res) => {
+  const { id } = req.params;
+  const { category } = req.body;
+  
+  if (!category) {
+    return res.status(400).json({ error: 'Category is required.' });
+  }
+
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      await pool.query(
+        'UPDATE transactions SET actual_category = $1, status = $2 WHERE id = $3',
+        [category, 'Processado', id]
+      );
+      const result = await pool.query('SELECT * FROM transactions ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database update failed. Falling back to in-memory.', err.message);
+    }
+  }
+
+  // Fallback in-memory
+  const tx = inMemoryTransactions.find(t => t.id === parseInt(id));
+  if (tx) {
+    tx.actual_category = category;
+    tx.status = 'Processado';
+  }
+  res.json(inMemoryTransactions);
+});
+
+// --- GOALS (Caixinhas) ---
+let inMemoryGoals = [];
+
+app.get('/api/goals', async (req, res) => {
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      const result = await pool.query('SELECT * FROM goals ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database goals query failed. Falling back to in-memory.', err.message);
+    }
+  }
+  res.json(inMemoryGoals);
+});
+
+app.post('/api/goals', async (req, res) => {
+  const { name, target_amount, target_date } = req.body;
+  if (!name || !target_amount) {
+    return res.status(400).json({ error: 'Name and target_amount are required.' });
+  }
+
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      await pool.query(
+        'INSERT INTO goals (name, target_amount, current_amount, target_date) VALUES ($1, $2, 0.00, $3)',
+        [name, target_amount, target_date || null]
+      );
+      const result = await pool.query('SELECT * FROM goals ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database goal insert failed. Falling back to in-memory.', err.message);
+    }
+  }
+
+  // Fallback in-memory
+  const newGoal = {
+    id: inMemoryGoals.length > 0 ? Math.max(...inMemoryGoals.map(g => g.id)) + 1 : 1,
+    name,
+    target_amount: parseFloat(target_amount),
+    current_amount: 0.00,
+    target_date: target_date || null
+  };
+  inMemoryGoals.push(newGoal);
+  res.json(inMemoryGoals);
+});
+
+app.put('/api/goals/:id', async (req, res) => {
+  const { id } = req.params;
+  const { current_amount, name, target_amount, target_date } = req.body;
+
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      if (current_amount !== undefined) {
+        await pool.query('UPDATE goals SET current_amount = $1 WHERE id = $2', [current_amount, id]);
+      } else {
+        await pool.query(
+          'UPDATE goals SET name = $1, target_amount = $2, target_date = $3 WHERE id = $4',
+          [name, target_amount, target_date || null, id]
+        );
+      }
+      const result = await pool.query('SELECT * FROM goals ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database goal update failed. Falling back to in-memory.', err.message);
+    }
+  }
+
+  // Fallback in-memory
+  const goal = inMemoryGoals.find(g => g.id === parseInt(id));
+  if (goal) {
+    if (current_amount !== undefined) {
+      goal.current_amount = parseFloat(current_amount);
+    } else {
+      if (name) goal.name = name;
+      if (target_amount) goal.target_amount = parseFloat(target_amount);
+      if (target_date !== undefined) goal.target_date = target_date;
+    }
+  }
+  res.json(inMemoryGoals);
+});
+
+app.delete('/api/goals/:id', async (req, res) => {
+  const { id } = req.params;
+
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      await pool.query('DELETE FROM goals WHERE id = $1', [id]);
+      const result = await pool.query('SELECT * FROM goals ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database goal delete failed. Falling back to in-memory.', err.message);
+    }
+  }
+
+  // Fallback in-memory
+  inMemoryGoals = inMemoryGoals.filter(g => g.id !== parseInt(id));
+  res.json(inMemoryGoals);
+});
+
+// --- BUDGETS (Orçamentos) ---
+let inMemoryBudgets = [];
+
+app.get('/api/budgets', async (req, res) => {
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      const result = await pool.query('SELECT * FROM budgets ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database budgets query failed. Falling back to in-memory.', err.message);
+    }
+  }
+  res.json(inMemoryBudgets);
+});
+
+app.post('/api/budgets', async (req, res) => {
+  const { category, limit_amount } = req.body;
+  if (!category || limit_amount === undefined) {
+    return res.status(400).json({ error: 'Category and limit_amount are required.' });
+  }
+
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      await pool.query(
+        'INSERT INTO budgets (category, limit_amount) VALUES ($1, $2) ON CONFLICT (category) DO UPDATE SET limit_amount = EXCLUDED.limit_amount',
+        [category, limit_amount]
+      );
+      const result = await pool.query('SELECT * FROM budgets ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database budget save failed. Falling back to in-memory.', err.message);
+    }
+  }
+
+  // Fallback in-memory
+  const existing = inMemoryBudgets.find(b => b.category === category);
+  if (existing) {
+    existing.limit_amount = parseFloat(limit_amount);
+  } else {
+    inMemoryBudgets.push({
+      id: inMemoryBudgets.length > 0 ? Math.max(...inMemoryBudgets.map(b => b.id)) + 1 : 1,
+      category,
+      limit_amount: parseFloat(limit_amount)
+    });
+  }
+  res.json(inMemoryBudgets);
+});
+
+app.delete('/api/budgets/:id', async (req, res) => {
+  const { id } = req.params;
+
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      await pool.query('DELETE FROM budgets WHERE id = $1', [id]);
+      const result = await pool.query('SELECT * FROM budgets ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database budget delete failed. Falling back to in-memory.', err.message);
+    }
+  }
+
+  // Fallback in-memory
+  inMemoryBudgets = inMemoryBudgets.filter(b => b.id !== parseInt(id));
+  res.json(inMemoryBudgets);
+});
+
+// --- RECURRING BILLS (Contas Recorrentes) ---
+let inMemoryRecurring = [];
+
+app.get('/api/recurring', async (req, res) => {
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      const result = await pool.query('SELECT * FROM recurring_bills ORDER BY due_day ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database recurring bills query failed. Falling back to in-memory.', err.message);
+    }
+  }
+  res.json(inMemoryRecurring);
+});
+
+app.post('/api/recurring', async (req, res) => {
+  const { description, amount, due_day, type } = req.body;
+  if (!description || amount === undefined || !due_day || !type) {
+    return res.status(400).json({ error: 'Description, amount, due_day and type are required.' });
+  }
+
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      await pool.query(
+        'INSERT INTO recurring_bills (description, amount, due_day, type) VALUES ($1, $2, $3, $4)',
+        [description, amount, due_day, type]
+      );
+      const result = await pool.query('SELECT * FROM recurring_bills ORDER BY due_day ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database recurring insert failed. Falling back to in-memory.', err.message);
+    }
+  }
+
+  // Fallback in-memory
+  const newRec = {
+    id: inMemoryRecurring.length > 0 ? Math.max(...inMemoryRecurring.map(r => r.id)) + 1 : 1,
+    description,
+    amount: parseFloat(amount),
+    due_day: parseInt(due_day),
+    type
+  };
+  inMemoryRecurring.push(newRec);
+  res.json(inMemoryRecurring);
+});
+
+app.delete('/api/recurring/:id', async (req, res) => {
+  const { id } = req.params;
+
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      await pool.query('DELETE FROM recurring_bills WHERE id = $1', [id]);
+      const result = await pool.query('SELECT * FROM recurring_bills ORDER BY due_day ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database recurring delete failed. Falling back to in-memory.', err.message);
+    }
+  }
+
+  // Fallback in-memory
+  inMemoryRecurring = inMemoryRecurring.filter(r => r.id !== parseInt(id));
+  res.json(inMemoryRecurring);
 });
 
 // Route to run categorization benchmark

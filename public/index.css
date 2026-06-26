@@ -418,6 +418,11 @@ body {
   gap: 24px;
 }
 
+.three-columns {
+  grid-template-columns: 1.1fr 0.9fr 1fr;
+}
+
+
 /* Upload Drop Zone */
 .drop-zone {
   border: 2px dashed rgba(255, 255, 255, 0.15);
@@ -991,8 +996,8 @@ body {
   }
 
   /* Dashboard grids */
-  .dashboard-grid {
-    grid-template-columns: 1fr; /* Stack charts and dropzone */
+  .dashboard-grid, .three-columns {
+    grid-template-columns: 1fr !important; /* Stack charts and dropzone */
     gap: 20px;
   }
 

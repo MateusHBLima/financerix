@@ -55,6 +55,27 @@
           <h2 class="page-title" id="main-title">Visão Geral</h2>
           <p class="page-subtitle">Monitore e gerencie seus gastos usando inteligência artificial agêntica.</p>
         </div>
+        <div class="topbar-filters" style="display: flex; gap: 8px; align-items: center; margin-right: 16px;">
+          <select class="select-input" id="filter-year" style="min-width: 90px; background: #05070a; border: 1px solid var(--border-color); color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 13px; font-weight: 500; outline: none; cursor: pointer;">
+            <option value="Todos">Ano: Todos</option>
+            <option value="2026" selected>2026</option>
+          </select>
+          <select class="select-input" id="filter-month" style="min-width: 110px; background: #05070a; border: 1px solid var(--border-color); color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 13px; font-weight: 500; outline: none; cursor: pointer;">
+            <option value="Todos">Mês: Todos</option>
+            <option value="01">Janeiro</option>
+            <option value="02">Fevereiro</option>
+            <option value="03">Março</option>
+            <option value="04">Abril</option>
+            <option value="05">Maio</option>
+            <option value="06">Junho</option>
+            <option value="07">Julho</option>
+            <option value="08">Agosto</option>
+            <option value="09">Setembro</option>
+            <option value="10">Outubro</option>
+            <option value="11">Novembro</option>
+            <option value="12">Dezembro</option>
+          </select>
+        </div>
         <div class="topbar-actions" style="display: flex; align-items: center; gap: 16px;">
           <button class="btn-icon" id="btn-settings" title="Configurações de API" style="background: none; border: 1px solid var(--border-color); color: var(--text-muted); cursor: pointer; padding: 8px; border-radius: 8px; transition: var(--transition); display: flex; align-items: center; justify-content: center;">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -90,7 +111,7 @@
           <div class="kpi-card">
             <div class="kpi-icon balance"></div>
             <div class="kpi-content">
-              <span class="kpi-label">Saldo Líquido</span>
+              <span class="kpi-label">Saldo Disponível</span>
               <h3 class="kpi-value" id="kpi-balance">R$ 0,00</h3>
             </div>
           </div>
@@ -103,91 +124,165 @@
           </div>
         </div>
 
-        <!-- Upper Section: Upload & Charts -->
-        <div class="dashboard-grid">
-          <!-- Upload Card -->
-          <div class="glass-card upload-container">
-            <div class="card-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+         <!-- Upper Section: Upload & Charts & Budgets -->
+         <div class="dashboard-grid three-columns">
+           <!-- Upload Card -->
+           <div class="glass-card upload-container">
+             <div class="card-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+               <div class="card-header" style="margin-bottom: 0;">
+                 <h3 class="card-title">Importar Extrato Bancário</h3>
+                 <p class="card-desc">Faça upload de arquivos CSV, OFX ou PDF, ou cole o extrato bruto.</p>
+               </div>
+               <div class="import-tabs" style="display: flex; gap: 8px; background: rgba(255,255,255,0.03); padding: 4px; border-radius: 8px; border: 1px solid var(--border-color);">
+                 <button class="tab-btn active" id="tab-upload" style="background: rgba(255,255,255,0.05); border: none; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: var(--transition);">Arquivo Extrato</button>
+                 <button class="tab-btn" id="tab-paste" style="background: none; border: none; color: var(--text-muted); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: var(--transition);">Colar Texto</button>
+               </div>
+             </div>
+ 
+             <!-- Upload File Pane -->
+             <div class="import-pane active" id="pane-upload">
+               <div class="drop-zone" id="drop-zone">
+                 <div class="drop-zone-icon"></div>
+                 <span class="drop-zone-text">Solte seu arquivo CSV, OFX ou PDF aqui</span>
+                 <span class="drop-zone-or">ou</span>
+                 <div class="drop-zone-actions" style="display: flex; gap: 8px; justify-content: center; z-index: 10;">
+                   <button class="btn btn-secondary" id="btn-load-mock">Usar Dados de Demonstração (Sparo)</button>
+                   <button class="btn btn-secondary" id="btn-clear-data" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: #ef4444;">Limpar Dados</button>
+                 </div>
+               </div>
+             </div>
+ 
+             <!-- Paste Text Pane -->
+             <div class="import-pane hidden" id="pane-paste">
+               <textarea class="textarea-input" id="paste-area" placeholder="Cole aqui as linhas copiadas do seu extrato Nubank. Exemplo:&#10;25 JUN UBER *TRIP -24.90&#10;26 JUN IFOOD *RESTAURANTE -89.50" style="width: 100%; height: 200px; background: #05070a; border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-main); padding: 16px; font-family: var(--font-mono); font-size: 13px; outline: none; resize: none;"></textarea>
+               <button class="btn btn-secondary" id="btn-parse-paste" style="margin-top: 12px; width: 100%; justify-content: center;">Processar Texto Colado</button>
+             </div>
+ 
+             <div class="action-bar hidden" id="action-bar">
+               <span class="tx-count-text" id="tx-count-text">0 transações prontas</span>
+               <button class="btn btn-primary" id="btn-categorize">
+                 <span class="btn-icon-spin hidden" id="spin-categorize"></span>
+                 Categorizar Transações
+               </button>
+             </div>
+           </div>
+ 
+           <!-- Chart & Top Merchants Card -->
+           <div class="glass-card chart-container">
+             <div class="card-header">
+               <h3 class="card-title">Distribuição de Despesas</h3>
+               <p class="card-desc">Gastos por categorias após processamento dos agentes.</p>
+             </div>
+             <div class="chart-wrapper">
+               <canvas id="expensesChart"></canvas>
+               <div class="no-chart-data" id="chart-placeholder">
+                 <p>Importe dados para visualizar a análise gráfica</p>
+               </div>
+             </div>
+             
+             <!-- Top Merchants Section -->
+             <div class="top-merchants-section" style="margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+               <h4 style="font-family: var(--font-title); font-size: 14px; font-weight: 600; color: #ffffff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                 Maiores Gastos por Estabelecimento
+               </h4>
+               <div id="top-merchants-list" style="display: flex; flex-direction: column; gap: 10px;">
+                 <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 12px 0;">Importe dados para visualizar a análise</p>
+               </div>
+             </div>
+           </div>
+
+           <!-- Budgets (Limites Mensais) Card -->
+           <div class="glass-card budget-container">
+             <div class="card-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+               <div class="card-header" style="margin-bottom: 0;">
+                 <h3 class="card-title">Limites de Orçamento</h3>
+                 <p class="card-desc">Planejamento mensal de limites por categoria.</p>
+               </div>
+               <button class="btn btn-secondary btn-sm" id="btn-new-budget" style="font-size: 11px; padding: 6px 12px; border-radius: 8px;">Definir Limite</button>
+             </div>
+             <div class="budget-list" id="budget-list" style="display: flex; flex-direction: column; gap: 14px; margin-top: 16px;">
+               <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 20px 0;">Nenhum orçamento definido para este mês.</p>
+             </div>
+           </div>
+         </div>
+
+        <!-- Lower Section: Transactions Table & Goals/Forecast Column -->
+        <div class="dashboard-grid lower-grid" style="margin-top: 24px;">
+          <!-- Transactions Card -->
+          <div class="glass-card transactions-card" style="margin-bottom: 0;">
+            <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
               <div class="card-header" style="margin-bottom: 0;">
-                <h3 class="card-title">Importar Extrato Bancário</h3>
-                <p class="card-desc">Faça upload de arquivos CSV, OFX ou PDF, ou cole o extrato bruto.</p>
+                <h3 class="card-title">Lançamentos</h3>
+                <p class="card-desc">Lista completa de transações e suas categorias.</p>
               </div>
-              <div class="import-tabs" style="display: flex; gap: 8px; background: rgba(255,255,255,0.03); padding: 4px; border-radius: 8px; border: 1px solid var(--border-color);">
-                <button class="tab-btn active" id="tab-upload" style="background: rgba(255,255,255,0.05); border: none; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: var(--transition);">Arquivo Extrato</button>
-                <button class="tab-btn" id="tab-paste" style="background: none; border: none; color: var(--text-muted); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: var(--transition);">Colar Texto</button>
-              </div>
-            </div>
-
-            <!-- Upload File Pane -->
-            <div class="import-pane active" id="pane-upload">
-              <div class="drop-zone" id="drop-zone">
-                <div class="drop-zone-icon"></div>
-                <span class="drop-zone-text">Solte seu arquivo CSV, OFX ou PDF aqui</span>
-                <span class="drop-zone-or">ou</span>
-                <div class="drop-zone-actions" style="display: flex; gap: 8px; justify-content: center; z-index: 10;">
-                  <button class="btn btn-secondary" id="btn-load-mock">Usar Dados de Demonstração (Sparo)</button>
-                  <button class="btn btn-secondary" id="btn-clear-data" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: #ef4444;">Limpar Dados</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Paste Text Pane -->
-            <div class="import-pane hidden" id="pane-paste">
-              <textarea class="textarea-input" id="paste-area" placeholder="Cole aqui as linhas copiadas do seu extrato Nubank. Exemplo:&#10;25 JUN UBER *TRIP -24.90&#10;26 JUN IFOOD *RESTAURANTE -89.50" style="width: 100%; height: 200px; background: #05070a; border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-main); padding: 16px; font-family: var(--font-mono); font-size: 13px; outline: none; resize: none;"></textarea>
-              <button class="btn btn-secondary" id="btn-parse-paste" style="margin-top: 12px; width: 100%; justify-content: center;">Processar Texto Colado</button>
-            </div>
-
-            <div class="action-bar hidden" id="action-bar">
-              <span class="tx-count-text" id="tx-count-text">0 transações prontas</span>
-              <button class="btn btn-primary" id="btn-categorize">
-                <span class="btn-icon-spin hidden" id="spin-categorize"></span>
-                Categorizar Transações
-              </button>
-            </div>
-          </div>
-
-          <!-- Chart Card -->
-          <div class="glass-card chart-container">
-            <div class="card-header">
-              <h3 class="card-title">Distribuição de Despesas</h3>
-              <p class="card-desc">Gastos por categorias após processamento dos agentes.</p>
-            </div>
-            <div class="chart-wrapper">
-              <canvas id="expensesChart"></canvas>
-              <div class="no-chart-data" id="chart-placeholder">
-                <p>Importe dados para visualizar a análise gráfica</p>
+              <div class="table-filters" style="display: flex; gap: 8px; align-items: center;">
+                <select class="select-input" id="filter-category" style="min-width: 140px; background: #05070a; border: 1px solid var(--border-color); color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 500; outline: none; cursor: pointer;">
+                  <option value="Todas">Todas Categorias</option>
+                  <option value="Alimentação">Alimentação</option>
+                  <option value="Transporte">Transporte</option>
+                  <option value="Assinaturas & Serviços">Assinaturas & Serviços</option>
+                  <option value="Supermercado">Supermercado</option>
+                  <option value="Compras">Compras</option>
+                  <option value="Combustível">Combustível</option>
+                  <option value="Saúde">Saúde</option>
+                  <option value="Receitas">Receitas</option>
+                  <option value="Transferências">Transferências</option>
+                  <option value="Lazer & Entretenimento">Lazer & Entretenimento</option>
+                  <option value="Outros">Outros</option>
+                </select>
               </div>
             </div>
-          </div>
-        </div>
-
-        <!-- Lower Section: Transactions Table -->
-        <div class="glass-card transactions-card">
-          <div class="card-header-row">
-            <div class="card-header">
-              <h3 class="card-title">Transações</h3>
-              <p class="card-desc">Lista completa de lançamentos e suas categorias.</p>
+            
+            <div class="table-wrapper">
+              <table class="table" id="transactions-table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Descrição</th>
+                    <th>Valor</th>
+                    <th>Categoria</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="table-body">
+                  <tr>
+                    <td colspan="5" class="empty-table">Nenhuma transação carregada. Clique em "Usar Dados de Demonstração" acima.</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <!-- No agent filter since there is only a single categorization agent -->
           </div>
           
-          <div class="table-wrapper">
-            <table class="table" id="transactions-table">
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Descrição</th>
-                  <th>Valor</th>
-                  <th>Categoria</th>
-                  <th>Método/Status</th>
-                </tr>
-              </thead>
-              <tbody id="table-body">
-                <tr>
-                  <td colspan="5" class="empty-table">Nenhuma transação carregada. Clique em "Usar Dados de Demonstração" acima.</td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- Column for Goals & Forecast -->
+          <div class="goals-forecast-column" style="display: flex; flex-direction: column; gap: 24px;">
+            <!-- Goals Card -->
+            <div class="glass-card goals-card" style="flex: 1;">
+              <div class="card-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <div class="card-header" style="margin-bottom: 0;">
+                  <h3 class="card-title">Objetivos (Caixinhas)</h3>
+                  <p class="card-desc">Crie caixinhas para guardar saldo e realizar metas.</p>
+                </div>
+                <button class="btn btn-primary btn-sm" id="btn-new-goal" style="font-size: 11px; padding: 6px 12px; border-radius: 8px;">+ Nova Caixinha</button>
+              </div>
+              <div class="goals-list" id="goals-list" style="display: flex; flex-direction: column; gap: 14px;">
+                <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 12px 0;">Nenhum objetivo cadastrado.</p>
+              </div>
+            </div>
+
+            <!-- Forecast / Recurring Card -->
+            <div class="glass-card forecast-card" style="flex: 1;">
+              <div class="card-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <div class="card-header" style="margin-bottom: 0;">
+                  <h3 class="card-title">Fluxo de Caixa Futuro</h3>
+                  <p class="card-desc">Projeção do saldo livre para os próximos 30 dias.</p>
+                </div>
+                <button class="btn btn-secondary btn-sm" id="btn-new-recurring" style="font-size: 11px; padding: 6px 12px; border-radius: 8px;">+ Recorrente</button>
+              </div>
+              <div class="forecast-timeline" id="forecast-timeline" style="display: flex; flex-direction: column; gap: 12px;">
+                <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 12px 0;">Cadastre contas recorrentes para ver a previsão.</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -218,6 +313,106 @@
       <div class="modal-footer" style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
         <button class="btn btn-secondary" id="btn-cancel-settings">Cancelar</button>
         <button class="btn btn-primary" id="btn-save-settings">Salvar Configurações</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Goal Modal -->
+  <div class="modal" id="goal-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); z-index: 100; align-items: center; justify-content: center;">
+    <div class="modal-content" style="background: #0d1017; border: 1px solid var(--border-color); border-radius: 20px; padding: 32px; width: 450px; max-width: 90%; box-shadow: var(--box-shadow); animation: slideIn 0.3s ease-out;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 class="modal-title" id="goal-modal-title" style="font-family: var(--font-title); font-size: 18px; font-weight: 600; color: #ffffff;">Nova Caixinha / Objetivo</h3>
+        <button class="close-modal" id="close-goal-modal" style="background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer;">&times;</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+        <input type="hidden" id="goal-id-val">
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="goal-name-val" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Nome do Objetivo</label>
+          <input type="text" id="goal-name-val" class="form-input" placeholder="Ex: Viagem de Férias, Reserva de Emergência" style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
+        </div>
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="goal-target-val" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Meta de Valor (R$)</label>
+          <input type="number" step="0.01" id="goal-target-val" class="form-input" placeholder="Ex: 5000.00" style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
+        </div>
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="goal-date-val" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Data Limite (Opcional)</label>
+          <input type="date" id="goal-date-val" class="form-input" style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
+        </div>
+      </div>
+      <div class="modal-footer" style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+        <button class="btn btn-secondary" id="btn-cancel-goal">Cancelar</button>
+        <button class="btn btn-primary" id="btn-save-goal">Salvar Caixinha</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Budget Modal -->
+  <div class="modal" id="budget-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); z-index: 100; align-items: center; justify-content: center;">
+    <div class="modal-content" style="background: #0d1017; border: 1px solid var(--border-color); border-radius: 20px; padding: 32px; width: 450px; max-width: 90%; box-shadow: var(--box-shadow); animation: slideIn 0.3s ease-out;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 class="modal-title" style="font-family: var(--font-title); font-size: 18px; font-weight: 600; color: #ffffff;">Definir Limite de Orçamento</h3>
+        <button class="close-modal" id="close-budget-modal" style="background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer;">&times;</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="budget-category-val" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Categoria</label>
+          <select id="budget-category-val" class="select-input" style="width: 100%; background: #05070a; border: 1px solid var(--border-color); color: #fff; padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; cursor: pointer;">
+            <option value="Alimentação">Alimentação</option>
+            <option value="Transporte">Transporte</option>
+            <option value="Assinaturas & Serviços">Assinaturas & Serviços</option>
+            <option value="Supermercado">Supermercado</option>
+            <option value="Compras">Compras</option>
+            <option value="Combustível">Combustível</option>
+            <option value="Saúde">Saúde</option>
+            <option value="Receitas">Receitas</option>
+            <option value="Transferências">Transferências</option>
+            <option value="Lazer & Entretenimento">Lazer & Entretenimento</option>
+            <option value="Outros">Outros</option>
+          </select>
+        </div>
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="budget-limit-val" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Limite Mensal (R$)</label>
+          <input type="number" step="0.01" id="budget-limit-val" class="form-input" placeholder="Ex: 800.00" style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
+        </div>
+      </div>
+      <div class="modal-footer" style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+        <button class="btn btn-secondary" id="btn-cancel-budget">Cancelar</button>
+        <button class="btn btn-primary" id="btn-save-budget">Salvar Limite</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recurring Bill Modal -->
+  <div class="modal" id="recurring-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); z-index: 100; align-items: center; justify-content: center;">
+    <div class="modal-content" style="background: #0d1017; border: 1px solid var(--border-color); border-radius: 20px; padding: 32px; width: 450px; max-width: 90%; box-shadow: var(--box-shadow); animation: slideIn 0.3s ease-out;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 class="modal-title" style="font-family: var(--font-title); font-size: 18px; font-weight: 600; color: #ffffff;">Novo Lançamento Recorrente</h3>
+        <button class="close-modal" id="close-recurring-modal" style="background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer;">&times;</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="recurring-desc-val" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Descrição</label>
+          <input type="text" id="recurring-desc-val" class="form-input" placeholder="Ex: Aluguel, Salário, Internet" style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
+        </div>
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="recurring-amount-val" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Valor (R$)</label>
+          <input type="number" step="0.01" id="recurring-amount-val" class="form-input" placeholder="Ex: 1200.00" style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
+        </div>
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="recurring-day-val" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Dia do Vencimento (1 a 31)</label>
+          <input type="number" min="1" max="31" id="recurring-day-val" class="form-input" placeholder="Ex: 5" style="background: #05070a; border: 1px solid var(--border-color); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; transition: var(--transition);">
+        </div>
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="recurring-type-val" class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Tipo de Lançamento</label>
+          <select id="recurring-type-val" class="select-input" style="width: 100%; background: #05070a; border: 1px solid var(--border-color); color: #fff; padding: 12px; border-radius: 8px; font-family: var(--font-body); font-size: 14px; outline: none; cursor: pointer;">
+            <option value="Despesa">Despesa (Débito)</option>
+            <option value="Receita">Receita (Crédito)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer" style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+        <button class="btn btn-secondary" id="btn-cancel-recurring">Cancelar</button>
+        <button class="btn btn-primary" id="btn-save-recurring">Salvar Lançamento</button>
       </div>
     </div>
   </div>
