@@ -19,14 +19,30 @@ if (process.env.DATABASE_URL) {
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }
     });
-    // Test the connection
-    pool.query('SELECT NOW()', (err, res) => {
+    // Test the connection and ensure table exists
+    pool.query('SELECT NOW()', async (err, res) => {
       if (err) {
         console.warn('Warning: PostgreSQL connection test failed. Falling back to mock data / in-memory storage.', err.message);
         useDbFallback = true;
       } else {
         console.log('PostgreSQL connection test successful. Using database persistence.');
         useDbFallback = false;
+        try {
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS transactions (
+              id SERIAL PRIMARY KEY,
+              date VARCHAR(10) NOT NULL,
+              description VARCHAR(255) NOT NULL,
+              amount DECIMAL(10, 2) NOT NULL,
+              expected_category VARCHAR(100) NOT NULL,
+              actual_category VARCHAR(100),
+              status VARCHAR(50) DEFAULT 'Pendente'
+            );
+          `);
+          console.log('Table "transactions" ensured in PostgreSQL database.');
+        } catch (tableErr) {
+          console.error('Error creating/verifying "transactions" table:', tableErr.message);
+        }
       }
     });
   } catch (error) {
