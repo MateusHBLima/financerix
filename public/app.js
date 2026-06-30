@@ -652,17 +652,18 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      handleFile(files[0]);
+      handleFiles(files);
     }
   });
 
   dropZone.addEventListener('click', () => {
     const input = document.createElement('input');
     input.type = 'file';
+    input.multiple = true;
     input.accept = '.csv,.txt,.ofx,.pdf';
     input.onchange = (e) => {
       if (e.target.files.length > 0) {
-        handleFile(e.target.files[0]);
+        handleFiles(e.target.files);
       }
     };
     input.click();
@@ -673,67 +674,181 @@ document.addEventListener('DOMContentLoaded', () => {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
   }
 
-  function handleFile(file) {
-    const reader = new FileReader();
+  function readFileContent(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      if (file.name.endsWith('.pdf')) {
+        reader.onload = async (e) => {
+          const arrayBuffer = e.target.result;
+          try {
+            if (typeof pdfjsLib === 'undefined') {
+              return reject(new Error('Biblioteca PDF.js não está disponível. Recarregue a página.'));
+            }
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            const pdf = await loadingTask.promise;
+            let fullText = '';
+            
+            for (let i = 1; i <= pdf.numPages; i++) {
+              const page = await pdf.getPage(i);
+              const textContent = await page.getTextContent();
+              const items = textContent.items;
+              
+              const linesMap = {};
+              items.forEach(item => {
+                if (!item.str.trim()) return;
+                const y = Math.round(item.transform[5] * 2) / 2;
+                
+                let foundY = Object.keys(linesMap).find(existingY => Math.abs(parseFloat(existingY) - y) < 5);
+                
+                if (foundY) {
+                  linesMap[foundY].push(item);
+                } else {
+                  linesMap[y] = [item];
+                }
+              });
+              
+              const sortedYs = Object.keys(linesMap).sort((a, b) => parseFloat(b) - parseFloat(a));
+              
+              let pageText = '';
+              sortedYs.forEach(y => {
+                const lineItems = linesMap[y];
+                lineItems.sort((a, b) => a.transform[4] - b.transform[4]);
+                const lineText = lineItems.map(item => item.str).join(' ');
+                pageText += lineText + '\n';
+              });
+              
+              fullText += pageText + '\n';
+            }
+            resolve(fullText);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsArrayBuffer(file);
+      } else {
+        reader.onload = (e) => {
+          resolve(e.target.result);
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(file, 'utf-8');
+      }
+    });
+  }
+
+  async function handleFiles(files) {
+    if (!files || files.length === 0) return;
     
-    if (file.name.endsWith('.pdf')) {
-      reader.onload = async (e) => {
-        const arrayBuffer = e.target.result;
-        try {
-          addLog('[SISTEMA] Iniciando leitura de arquivo PDF...');
-          if (typeof pdfjsLib === 'undefined') {
-            throw new Error('Biblioteca PDF.js não está disponível. Recarregue a página.');
-          }
-          const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-          const pdf = await loadingTask.promise;
-          let fullText = '';
-          
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            const items = textContent.items;
-            
-            const linesMap = {};
-            items.forEach(item => {
-              if (!item.str.trim()) return;
-              const y = Math.round(item.transform[5] * 2) / 2;
-              
-              let foundY = Object.keys(linesMap).find(existingY => Math.abs(parseFloat(existingY) - y) < 5);
-              
-              if (foundY) {
-                linesMap[foundY].push(item);
-              } else {
-                linesMap[y] = [item];
-              }
-            });
-            
-            const sortedYs = Object.keys(linesMap).sort((a, b) => parseFloat(b) - parseFloat(a));
-            
-            let pageText = '';
-            sortedYs.forEach(y => {
-              const lineItems = linesMap[y];
-              lineItems.sort((a, b) => a.transform[4] - b.transform[4]);
-              const lineText = lineItems.map(item => item.str).join(' ');
-              pageText += lineText + '\n';
-            });
-            
-            fullText += pageText + '\n';
-          }
-          
-          parseTextAgently(fullText, 'PDF');
-        } catch (err) {
-          addLog(`[ERRO] Falha ao processar PDF: ${err.message}`, 'error-line');
-          alert(`Falha no PDF: ${err.message}`);
+    addLog(`[SISTEMA] Iniciando leitura de ${files.length} arquivos...`);
+    let allTexts = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const text = await readFileContent(file);
+        allTexts.push({ text, name: file.name });
+      } catch (err) {
+        addLog(`[ERRO] Falha ao ler o arquivo ${file.name}: ${err.message}`, 'error-line');
+      }
+    }
+
+    if (allTexts.length === 0) {
+      alert('Nenhum dos arquivos pôde ser lido com sucesso.');
+      return;
+    }
+
+    // Process all texts together
+    addLog(`[SISTEMA] Processando conteúdo de ${allTexts.length} arquivos...`);
+    parseMultipleTextsAgently(allTexts);
+  }
+
+  async function parseMultipleTextsAgently(allTexts) {
+    const geminiKey = localStorage.getItem('key_gemini') || '';
+    
+    // Show loading in drop zone
+    dropZone.innerHTML = `
+      <div class="drop-zone-icon loading-spin" style="border: 4px solid rgba(59, 130, 246, 0.1); border-left-color: var(--accent-blue); width: 32px; height: 32px; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px;"></div>
+      <span class="drop-zone-text" style="color: var(--accent-blue)">Processando ${allTexts.length} arquivos...</span>
+      <span class="drop-zone-or" style="margin-top: 8px;">A extração pode levar alguns segundos.</span>
+    `;
+
+    let allTransactions = [];
+    let errors = [];
+
+    for (const fileData of allTexts) {
+      addLog(`🛸 [PARSER] Enviando arquivo "${fileData.name}" para análise...`);
+      try {
+        const response = await fetch('/api/parse-statement', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-gemini-key': geminiKey
+          },
+          body: JSON.stringify({ text: fileData.text })
+        });
+        
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || 'Erro no servidor.');
         }
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
-      reader.onload = (e) => {
-        const text = e.target.result;
-        const formatName = file.name.endsWith('.csv') ? 'CSV' : (file.name.endsWith('.ofx') ? 'OFX' : 'Texto');
-        parseTextAgently(text, formatName);
-      };
-      reader.readAsText(file, 'utf-8');
+        
+        const transactions = await response.json();
+        if (transactions.length > 0) {
+          addLog(`🛸 [PARSER] Sucesso: ${transactions.length} transações encontradas em "${fileData.name}".`, 'success-line');
+          allTransactions = allTransactions.concat(transactions);
+        } else {
+          addLog(`🛸 [PARSER] Nenhuma transação encontrada em "${fileData.name}".`);
+        }
+      } catch (err) {
+        addLog(`🛸 [ERRO] Falha ao processar "${fileData.name}": ${err.message}`, 'error-line');
+        errors.push(`${fileData.name}: ${err.message}`);
+      }
+    }
+
+    if (allTransactions.length === 0) {
+      alert(`Falha ao processar arquivos:\n${errors.join('\n')}`);
+      resetDropZoneToDefault();
+      return;
+    }
+
+    // Assign unique IDs to all combined transactions
+    allTransactions.forEach((tx, idx) => {
+      tx.id = idx + 1;
+    });
+
+    try {
+      addLog(`🛸 [PARSER] Persistindo total de ${allTransactions.length} transações no servidor...`);
+      const saveResponse = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(allTransactions)
+      });
+      
+      if (!saveResponse.ok) {
+        throw new Error('Falha ao persistir transações no banco de dados.');
+      }
+      
+      const persistedTransactions = await saveResponse.json();
+      loadedTransactions = sanitizeTransactions(persistedTransactions);
+      addLog(`🛸 [PARSER] Sucesso! Total de ${loadedTransactions.length} transações importadas e persistidas.`, 'success-line');
+      
+      updateDropZoneSuccess(loadedTransactions.length);
+      updateDashboard();
+      
+      // Auto-trigger categorization
+      addLog('🛸 [PARSER] Iniciando categorização automática...');
+      btnCategorize.click();
+
+      if (errors.length > 0) {
+        alert(`Processamento concluído com alguns avisos:\nImportadas: ${loadedTransactions.length} transações.\n\nErros em alguns arquivos:\n${errors.join('\n')}`);
+      }
+    } catch (err) {
+      addLog(`[ERRO] Falha ao salvar transações: ${err.message}`, 'error-line');
+      alert(`Falha ao salvar transações: ${err.message}`);
+      resetDropZoneToDefault();
     }
   }
 
