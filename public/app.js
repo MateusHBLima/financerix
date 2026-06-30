@@ -194,6 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadedTransactions = sanitizeTransactions(data);
         if (loadedTransactions.length > 0) {
           addLog(`[SISTEMA] Sucesso! ${loadedTransactions.length} transações salvas carregadas.`, 'success-line');
+          autoSetFiltersToMostRecent();
           updateDropZoneSuccess(loadedTransactions.length);
           updateDashboard();
         } else {
@@ -251,6 +252,29 @@ document.addEventListener('DOMContentLoaded', () => {
       ...tx,
       amount: typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount
     }));
+  }
+
+  function autoSetFiltersToMostRecent() {
+    if (loadedTransactions.length === 0) return;
+    
+    let mostRecentDate = null;
+    loadedTransactions.forEach(tx => {
+      if (!tx.date) return;
+      if (!mostRecentDate || tx.date > mostRecentDate) {
+        mostRecentDate = tx.date;
+      }
+    });
+
+    if (mostRecentDate) {
+      const parts = mostRecentDate.split('-');
+      if (parts.length >= 2) {
+        const txYear = parts[0];
+        const txMonth = parts[1];
+        
+        if (filterYear) filterYear.value = txYear;
+        if (filterMonth) filterMonth.value = txMonth;
+      }
+    }
   }
 
   // Attach initial listeners for clear button
@@ -602,7 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const persistedTransactions = await saveResponse.json();
       loadedTransactions = sanitizeTransactions(persistedTransactions);
       addLog(`🛸 [AGENTE GEMINI] Sucesso! ${loadedTransactions.length} transações identificadas e persistidas.`, 'success-line');
-      
+      autoSetFiltersToMostRecent();
       updateDropZoneSuccess(loadedTransactions.length);
       updateDashboard();
       
@@ -834,7 +858,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const persistedTransactions = await saveResponse.json();
       loadedTransactions = sanitizeTransactions(persistedTransactions);
       addLog(`🛸 [PARSER] Sucesso! Total de ${loadedTransactions.length} transações importadas e persistidas.`, 'success-line');
-      
+      autoSetFiltersToMostRecent();
       updateDropZoneSuccess(loadedTransactions.length);
       updateDashboard();
       
@@ -1056,19 +1080,28 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Balance calculation: all-time income - all-time expenses - total goals current amount
-    let totalAllTimeIncome = 0;
-    let totalAllTimeExpenses = 0;
-    loadedTransactions.forEach(tx => {
-      if (tx.amount > 0) {
-        totalAllTimeIncome += tx.amount;
-      } else {
-        totalAllTimeExpenses += Math.abs(tx.amount);
-      }
-    });
+    const kpiBalanceLabel = document.getElementById('kpi-balance-label');
+    const selectedMonth = filterMonth ? filterMonth.value : 'Todos';
 
-    const totalGoalsSaved = loadedGoals.reduce((sum, g) => sum + parseFloat(g.current_amount || 0), 0);
-    const balance = totalAllTimeIncome - totalAllTimeExpenses - totalGoalsSaved;
+    let balance = 0;
+    if (selectedMonth === 'Todos') {
+      if (kpiBalanceLabel) kpiBalanceLabel.textContent = 'Saldo Total';
+      
+      let totalAllTimeIncome = 0;
+      let totalAllTimeExpenses = 0;
+      loadedTransactions.forEach(tx => {
+        if (tx.amount > 0) {
+          totalAllTimeIncome += tx.amount;
+        } else {
+          totalAllTimeExpenses += Math.abs(tx.amount);
+        }
+      });
+      const totalGoalsSaved = loadedGoals.reduce((sum, g) => sum + parseFloat(g.current_amount || 0), 0);
+      balance = totalAllTimeIncome - totalAllTimeExpenses - totalGoalsSaved;
+    } else {
+      if (kpiBalanceLabel) kpiBalanceLabel.textContent = 'Saldo do Mês';
+      balance = monthlyIncome - monthlyExpenses;
+    }
 
     const savingsRate = monthlyIncome > 0 ? (((monthlyIncome - monthlyExpenses) / monthlyIncome) * 100).toFixed(0) : 0;
 
