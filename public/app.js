@@ -1018,6 +1018,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  function isTransferOrCardPayment(tx) {
+    const category = tx.status === 'Processado' ? (tx.actual_category || 'Outros') : (tx.expected_category || 'Outros');
+    if (category === 'Transferências') {
+      return true;
+    }
+    const desc = (tx.description || '').toUpperCase();
+    return (
+      desc.includes('PAGAMENTO DE FATURA') || 
+      desc.includes('PAGTO FATURA') || 
+      desc.includes('PAG.FATURA') || 
+      desc.includes('PAGAMENTO CARTAO') || 
+      desc.includes('PAGTO CARTAO') || 
+      desc.includes('LIQUIDACAO FATURA') ||
+      desc.includes('PAGAMENTO DE BOLETO') ||
+      desc.includes('PAGAMENTO BOLETO') ||
+      desc.includes('PAGTO BOLETO') ||
+      desc.includes('PAGAMENTO TITULO') ||
+      desc.includes('PAGTO TITULO')
+    );
+  }
+
   // Update Dashboard KPIs, Graphs, Budgets, and Forecasts
   function updateDashboard() {
     const filteredTxs = getFilteredTransactions();
@@ -1026,6 +1047,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let monthlyExpenses = 0;
 
     filteredTxs.forEach(tx => {
+      if (isTransferOrCardPayment(tx)) return;
+      
       if (tx.amount > 0) {
         monthlyIncome += tx.amount;
       } else {
@@ -1074,6 +1097,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderChart(transactionsList) {
     const categoriesMap = {};
     transactionsList.forEach(tx => {
+      if (isTransferOrCardPayment(tx)) return;
       const category = tx.status === 'Processado' ? (tx.actual_category || 'Outros') : (tx.expected_category || 'Outros');
       if (tx.amount < 0) {
         categoriesMap[category] = (categoriesMap[category] || 0) + Math.abs(tx.amount);
@@ -1148,6 +1172,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let totalExpense = 0;
 
     transactionsList.forEach(tx => {
+      if (isTransferOrCardPayment(tx)) return;
       if (tx.amount < 0) {
         const desc = tx.description.toUpperCase().trim();
         merchants[desc] = (merchants[desc] || 0) + Math.abs(tx.amount);
