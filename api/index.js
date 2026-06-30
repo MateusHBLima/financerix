@@ -718,9 +718,9 @@ app.post('/api/categorize', async (req, res) => {
     console.log('Running heuristic regex categorization fallback...');
     transactions.forEach(tx => {
       let category = 'Outros';
-      const matchKey = Object.keys(LOCAL_REGEXES).find(k => 
-        new RegExp('\\b' + k, 'i').test(tx.description)
-      );
+      const matchKey = Object.keys(LOCAL_REGEXES)
+        .sort((a, b) => b.length - a.length)
+        .find(k => new RegExp('\\b' + k, 'i').test(tx.description));
       if (matchKey) {
         category = LOCAL_REGEXES[matchKey];
       }
@@ -761,6 +761,94 @@ app.post('/api/categorize', async (req, res) => {
   res.json(results);
 });
 
+// Heuristic local statement parser
+function parseStatementLocally(text) {
+  const transactions = [];
+  const lines = text.split('\n');
+  let currentId = 1;
+
+  for (let line of lines) {
+    line = line.trim();
+    if (!line) continue;
+
+    // Match DD/MM/YYYY, DD/MM/YY, DD/MM, DD-MM-YYYY, YYYY-MM-DD
+    const dateRegex = /\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b|\b(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\b/;
+    const dateMatch = line.match(dateRegex);
+    if (!dateMatch) continue;
+
+    let dateStr = "";
+    if (dateMatch[4]) {
+      const y = dateMatch[4];
+      const m = dateMatch[5].padStart(2, '0');
+      const d = dateMatch[6].padStart(2, '0');
+      dateStr = `${y}-${m}-${d}`;
+    } else {
+      const d = dateMatch[1].padStart(2, '0');
+      const m = dateMatch[2].padStart(2, '0');
+      let y = dateMatch[3] || '2026';
+      if (y.length === 2) y = '20' + y;
+      dateStr = `${y}-${m}-${d}`;
+    }
+
+    let remaining = line.replace(dateMatch[0], '').trim();
+
+    // Matches numbers like -1.200,50, -89.50, 5400,00, R$ -42,00, -R$ 79,90, 15,90-
+    const amountRegex = /(-?\s*(?:R\$\s*)?-?\d+(?:\.\d{3})*(?:,\d{2})\b)|(-?\s*(?:R\$\s*)?-?\d+(?:\,\d{3})*(?:\.\d{2})\b)|(-?\s*(?:R\$\s*)?-?\d+,\d{2}\b)|(-?\s*(?:R\$\s*)?-?\d+\.\d{2}\b)/g;
+    const matches = [...remaining.matchAll(amountRegex)];
+    if (matches.length === 0) continue;
+
+    const bestMatch = matches[matches.length - 1][0];
+    remaining = remaining.replace(bestMatch, '').trim();
+
+    let cleanAmountStr = bestMatch.replace(/R\$/g, '').replace(/\s/g, '');
+    let isNegative = cleanAmountStr.includes('-');
+    cleanAmountStr = cleanAmountStr.replace(/-/g, '');
+
+    let amountVal = 0;
+    if (cleanAmountStr.includes(',') && cleanAmountStr.includes('.')) {
+      if (cleanAmountStr.indexOf('.') < cleanAmountStr.indexOf(',')) {
+        cleanAmountStr = cleanAmountStr.replace(/\./g, '').replace(/,/g, '.');
+      } else {
+        cleanAmountStr = cleanAmountStr.replace(/,/g, '');
+      }
+    } else if (cleanAmountStr.includes(',')) {
+      cleanAmountStr = cleanAmountStr.replace(/,/g, '.');
+    }
+
+    amountVal = parseFloat(cleanAmountStr);
+    if (isNaN(amountVal)) continue;
+    if (isNegative) amountVal = -amountVal;
+
+    let description = remaining
+      .replace(/^[\s\-*\:]+/, '')
+      .replace(/[\s\-*\:]+$/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!description) {
+      description = "Transação Sem Nome";
+    }
+
+    let expectedCategory = 'Outros';
+    const matchKey = Object.keys(LOCAL_REGEXES)
+      .sort((a, b) => b.length - a.length)
+      .find(k => new RegExp('\\b' + k, 'i').test(description));
+    if (matchKey) {
+      expectedCategory = LOCAL_REGEXES[matchKey];
+    }
+
+    transactions.push({
+      id: currentId++,
+      date: dateStr,
+      description: description,
+      amount: amountVal,
+      expected_category: expectedCategory
+    });
+  }
+
+  return transactions;
+}
+
 app.post('/api/parse-statement', async (req, res) => {
   const { text } = req.body;
   const apiKey = req.headers['x-gemini-key'] || null;
@@ -769,8 +857,18 @@ app.post('/api/parse-statement', async (req, res) => {
     return res.status(400).json({ error: 'Nenhum texto de extrato fornecido.' });
   }
 
+  // Fallback to local heuristic parser if no Gemini API Key is configured
   if (!apiKey) {
-    return res.status(400).json({ error: 'Chave de API do Gemini não configurada. Insira-a nas Configurações (ícone de engrenagem) para ativar o processador agêntico do extrato.' });
+    console.log('Gemini API key not configured. Processing statement locally using regex heuristics...');
+    try {
+      const transactions = parseStatementLocally(text);
+      if (transactions.length === 0) {
+        return res.status(400).json({ error: 'Nenhuma transação foi identificada no texto pelo leitor local.' });
+      }
+      return res.json(transactions);
+    } catch (err) {
+      return res.status(500).json({ error: 'Erro no processador local: ' + err.message });
+    }
   }
 
   try {
