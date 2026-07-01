@@ -352,7 +352,7 @@ app.get('/api/transactions', async (req, res) => {
   if (!useDbFallback && pool) {
     try {
       if (dbInitPromise) await dbInitPromise;
-      let result = await pool.query('SELECT * FROM transactions ORDER BY id ASC');
+      let result = await pool.query('SELECT * FROM transactions ORDER BY date DESC, id DESC');
       return res.json(result.rows);
     } catch (err) {
       console.warn('Warning: Database query failed. Falling back to in-memory transactions.', err.message);
@@ -425,18 +425,36 @@ function checkIsBusiness(tx) {
   return false;
 }
 
-// Route to save transactions (overwrite existing)
+// Route to save transactions (cumulative & deduplicated)
 app.post('/api/transactions', async (req, res) => {
   const transactions = req.body;
   if (!Array.isArray(transactions)) {
     return res.status(400).json({ error: 'Data must be a JSON array of transactions.' });
   }
 
+  // Key generator helper: Date + Description (normalized) + Amount
+  const makeKey = (date, desc, amount) => {
+    const d = (date || '').trim();
+    const descNorm = (desc || '').trim().toUpperCase().replace(/\s+/g, ' ');
+    const amt = parseFloat(amount || 0).toFixed(2);
+    return `${d}|${descNorm}|${amt}`;
+  };
+
   if (!useDbFallback && pool) {
     try {
       if (dbInitPromise) await dbInitPromise;
-      await pool.query('DELETE FROM transactions');
+      
+      // 1. Fetch existing transactions to find duplicates
+      const existingResult = await pool.query('SELECT * FROM transactions');
+      const existingKeys = new Set(existingResult.rows.map(tx => makeKey(tx.date, tx.description, tx.amount)));
+
+      // 2. Insert only non-duplicate transactions
       for (const tx of transactions) {
+        const key = makeKey(tx.date, tx.description, tx.amount);
+        if (existingKeys.has(key)) {
+          continue; // Skip duplicate!
+        }
+        
         const block = tx.budget_block || getBlockForCategory(tx.actual_category || tx.expected_category);
         const isBiz = checkIsBusiness(tx);
         await pool.query(
@@ -453,22 +471,45 @@ app.post('/api/transactions', async (req, res) => {
             isBiz
           ]
         );
+        
+        // Add to key list to prevent duplication within the uploaded payload itself
+        existingKeys.add(key);
       }
-      const result = await pool.query('SELECT * FROM transactions ORDER BY id ASC');
+      
+      const result = await pool.query('SELECT * FROM transactions ORDER BY date DESC, id DESC');
       return res.json(result.rows);
     } catch (err) {
       console.warn('Warning: Failed to save to database. Falling back to in-memory.', err.message);
     }
   }
 
-  inMemoryTransactions = transactions.map((tx, idx) => ({
+  // Fallback in-memory database deduplication
+  const existingKeysMemory = new Set(inMemoryTransactions.map(tx => makeKey(tx.date, tx.description, tx.amount)));
+  
+  const toAdd = [];
+  transactions.forEach(tx => {
+    const key = makeKey(tx.date, tx.description, tx.amount);
+    if (!existingKeysMemory.has(key)) {
+      toAdd.push({
+        ...tx,
+        status: tx.status || 'Pendente',
+        budget_block: tx.budget_block || getBlockForCategory(tx.actual_category || tx.expected_category),
+        exclude_from_dash: tx.exclude_from_dash || false,
+        is_business: checkIsBusiness(tx)
+      });
+      existingKeysMemory.add(key);
+    }
+  });
+
+  // Combine and assign new incrementing IDs
+  inMemoryTransactions = inMemoryTransactions.concat(toAdd).map((tx, idx) => ({
     ...tx,
-    id: tx.id || (idx + 1),
-    status: tx.status || 'Pendente',
-    budget_block: tx.budget_block || getBlockForCategory(tx.actual_category || tx.expected_category),
-    exclude_from_dash: tx.exclude_from_dash || false,
-    is_business: checkIsBusiness(tx)
+    id: idx + 1
   }));
+
+  // Sort by date descending
+  inMemoryTransactions.sort((a, b) => b.date.localeCompare(a.date));
+
   res.json(inMemoryTransactions);
 });
 
