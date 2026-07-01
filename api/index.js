@@ -46,6 +46,7 @@ if (process.env.DATABASE_URL) {
 
           ALTER TABLE transactions ADD COLUMN IF NOT EXISTS budget_block VARCHAR(50) DEFAULT 'Necessidade';
           ALTER TABLE transactions ADD COLUMN IF NOT EXISTS exclude_from_dash BOOLEAN DEFAULT FALSE;
+          ALTER TABLE transactions ADD COLUMN IF NOT EXISTS is_business BOOLEAN DEFAULT FALSE;
 
           CREATE TABLE IF NOT EXISTS goals (
             id SERIAL PRIMARY KEY,
@@ -406,6 +407,24 @@ function getBlockForCategory(category) {
   return 'Necessidade'; // Default fallback
 }
 
+function checkIsBusiness(tx) {
+  if (tx.is_business === true || tx.is_business === 'true') return true;
+  
+  const desc = (tx.description || '').toUpperCase();
+  const cat = (tx.actual_category || tx.expected_category || '').toUpperCase();
+  
+  if (cat.includes('EMPRESA') || cat.includes('NEGÓCIO') || cat.includes('NEGOCIO') || cat.includes('BUSINESS')) {
+    return true;
+  }
+  
+  const keywords = ['MEI', 'DAS MEI', 'SIMPLES NACIONAL', 'PGTO PJ', 'FORNECEDOR PJ', 'CONTA PJ', 'EMPRESA', 'NOTA FISCAL', 'NF-E', 'RECEITA PJ', 'PRO-LABORE', 'PRÓ-LABORE'];
+  if (keywords.some(k => desc.includes(k))) {
+    return true;
+  }
+  
+  return false;
+}
+
 // Route to save transactions (overwrite existing)
 app.post('/api/transactions', async (req, res) => {
   const transactions = req.body;
@@ -419,8 +438,9 @@ app.post('/api/transactions', async (req, res) => {
       await pool.query('DELETE FROM transactions');
       for (const tx of transactions) {
         const block = tx.budget_block || getBlockForCategory(tx.actual_category || tx.expected_category);
+        const isBiz = checkIsBusiness(tx);
         await pool.query(
-          'INSERT INTO transactions (date, description, amount, expected_category, actual_category, status, budget_block, exclude_from_dash) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+          'INSERT INTO transactions (date, description, amount, expected_category, actual_category, status, budget_block, exclude_from_dash, is_business) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
           [
             tx.date, 
             tx.description, 
@@ -429,7 +449,8 @@ app.post('/api/transactions', async (req, res) => {
             tx.actual_category || null, 
             tx.status || 'Pendente', 
             block, 
-            tx.exclude_from_dash || false
+            tx.exclude_from_dash || false,
+            isBiz
           ]
         );
       }
@@ -445,7 +466,8 @@ app.post('/api/transactions', async (req, res) => {
     id: tx.id || (idx + 1),
     status: tx.status || 'Pendente',
     budget_block: tx.budget_block || getBlockForCategory(tx.actual_category || tx.expected_category),
-    exclude_from_dash: tx.exclude_from_dash || false
+    exclude_from_dash: tx.exclude_from_dash || false,
+    is_business: checkIsBusiness(tx)
   }));
   res.json(inMemoryTransactions);
 });
@@ -1183,6 +1205,33 @@ app.put('/api/transactions/:id/exclude', async (req, res) => {
   const tx = inMemoryTransactions.find(t => t.id === parseInt(id));
   if (tx) {
     tx.exclude_from_dash = !!exclude_from_dash;
+    return res.json(inMemoryTransactions);
+  }
+  res.status(404).json({ error: 'Transaction not found.' });
+});
+
+app.put('/api/transactions/:id/business', async (req, res) => {
+  const { id } = req.params;
+  const { is_business } = req.body;
+  if (is_business === undefined) {
+    return res.status(400).json({ error: 'is_business value is required.' });
+  }
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      await pool.query(
+        'UPDATE transactions SET is_business = $1 WHERE id = $2',
+        [!!is_business, id]
+      );
+      let result = await pool.query('SELECT * FROM transactions ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database toggle is_business failed.', err.message);
+    }
+  }
+  const tx = inMemoryTransactions.find(t => t.id === parseInt(id));
+  if (tx) {
+    tx.is_business = !!is_business;
     return res.json(inMemoryTransactions);
   }
   res.status(404).json({ error: 'Transaction not found.' });

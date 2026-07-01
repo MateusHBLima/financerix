@@ -155,6 +155,13 @@
               <h3 class="kpi-value" id="kpi-savings">0%</h3>
             </div>
           </div>
+          <div class="kpi-card">
+            <div class="kpi-icon business"></div>
+            <div class="kpi-content">
+              <span class="kpi-label">Custos Empresa (PJ)</span>
+              <h3 class="kpi-value" id="kpi-business">R$ 0,00</h3>
+            </div>
+          </div>
         </div>
 
         <!-- Upper Row: Chart & Top Merchants -->
@@ -309,6 +316,11 @@
               <p class="card-desc">Lista completa de transações e suas categorias.</p>
             </div>
             <div class="table-filters" style="display: flex; gap: 8px; align-items: center;">
+              <select class="select-input" id="filter-type" style="min-width: 155px; background: #05070a; border: 1px solid var(--border-color); color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 500; outline: none; cursor: pointer;">
+                <option value="Todos">Todos os Lançamentos</option>
+                <option value="Pessoal">Apenas Pessoal (PF)</option>
+                <option value="Empresa">Apenas Empresa (PJ)</option>
+              </select>
               <select class="select-input" id="filter-category" style="min-width: 140px; background: #05070a; border: 1px solid var(--border-color); color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 500; outline: none; cursor: pointer;">
                 <option value="Todas">Todas Categorias</option>
                 <option value="Alimentação">Alimentação</option>

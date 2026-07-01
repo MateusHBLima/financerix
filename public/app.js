@@ -128,6 +128,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const profileStartingBalance = document.getElementById('profile-starting-balance');
   const profileMonthlyIncome = document.getElementById('profile-monthly-income');
   const profileWork = document.getElementById('profile-work');
+  const kpiBusiness = document.getElementById('kpi-business');
+  const filterType = document.getElementById('filter-type');
   
   // State
   let loadedTransactions = [];
@@ -423,6 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (filterYear) filterYear.addEventListener('change', updateDashboard);
   if (filterMonth) filterMonth.addEventListener('change', updateDashboard);
   if (filterCategory) filterCategory.addEventListener('change', renderTable);
+  if (filterType) filterType.addEventListener('change', renderTable);
 
   // Reusable drop zone reset
   function resetDropZoneToDefault() {
@@ -725,7 +728,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let autoNeeds = 0;
       filteredTxs.forEach(tx => {
         const block = tx.budget_block || categoryToBlockMap[tx.actual_category || tx.expected_category] || 'Necessidade';
-        if (block === 'Necessidade' && tx.amount < 0 && !tx.exclude_from_dash && !isTransferOrCardPayment(tx)) {
+        if (block === 'Necessidade' && tx.amount < 0 && !tx.exclude_from_dash && !isTransferOrCardPayment(tx) && !tx.is_business) {
           autoNeeds += Math.abs(tx.amount);
         }
       });
@@ -1224,7 +1227,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const displayedTxs = filteredTxs.filter(tx => {
       const category = tx.status === 'Processado' ? (tx.actual_category || 'Outros') : (tx.expected_category || 'Outros');
-      return selectedCat === 'Todas' || category === selectedCat;
+      const matchesCategory = selectedCat === 'Todas' || category === selectedCat;
+      
+      const typeVal = filterType ? filterType.value : 'Todos';
+      let matchesType = true;
+      if (typeVal === 'Pessoal') {
+        matchesType = !tx.is_business;
+      } else if (typeVal === 'Empresa') {
+        matchesType = !!tx.is_business;
+      }
+      
+      return matchesCategory && matchesType;
     });
 
     if (displayedTxs.length === 0) {
@@ -1240,6 +1253,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = document.createElement('tr');
       if (tx.exclude_from_dash) {
         row.classList.add('tx-row-excluded');
+      }
+      if (tx.is_business) {
+        row.classList.add('tx-row-business');
       }
       
       const category = tx.status === 'Processado' ? (tx.actual_category || 'Outros') : (tx.expected_category || 'Outros');
@@ -1261,11 +1277,14 @@ document.addEventListener('DOMContentLoaded', () => {
           ${formatCurrency(tx.amount)}
         </td>
         <td>${selectHtml}</td>
-        <td style="text-align: center;">
-          <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted);">
+        <td style="text-align: center; display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 48px;">
+          <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted);" title="Desconsiderar dos KPIs">
             <input type="checkbox" class="tx-exclude-chk" data-tx-id="${tx.id}" ${tx.exclude_from_dash ? 'checked' : ''} style="cursor: pointer;">
             <span>Ignorar</span>
           </label>
+          <button class="tx-business-btn" data-tx-id="${tx.id}" style="background: none; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; opacity: ${tx.is_business ? 1 : 0.25}; font-size: 14px; padding: 2px 4px; border-radius: 4px; transition: var(--transition);" title="${tx.is_business ? 'Desmarcar como Empresa' : 'Marcar como Empresa'}">
+            💼
+          </button>
         </td>
       `;
 
@@ -1294,6 +1313,28 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         } catch (err) {
           console.error('Erro ao atualizar exclusão da transação:', err);
+        }
+      });
+
+      // Bind business toggle button
+      row.querySelector('.tx-business-btn').addEventListener('click', async (e) => {
+        const btn = e.target.closest('.tx-business-btn');
+        const id = btn.getAttribute('data-tx-id');
+        const isBiz = !tx.is_business; // Toggle
+        try {
+          const res = await fetch(`/api/transactions/${id}/business`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_business: isBiz })
+          });
+          if (res.ok) {
+            const updated = await res.json();
+            loadedTransactions = sanitizeTransactions(updated);
+            renderTable();
+            updateDashboard();
+          }
+        } catch (err) {
+          console.error('Erro ao alternar tipo de transação:', err);
         }
       });
 
@@ -1372,8 +1413,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let monthlyIncome = 0;
     let monthlyExpenses = 0;
+    let monthlyBusinessExpenses = 0;
 
     filteredTxs.forEach(tx => {
+      if (tx.is_business) {
+        if (tx.amount < 0 && !tx.exclude_from_dash && !isTransferOrCardPayment(tx)) {
+          monthlyBusinessExpenses += Math.abs(tx.amount);
+        }
+        return;
+      }
       if (isTransferOrCardPayment(tx) || tx.exclude_from_dash) return;
       
       if (tx.amount > 0) {
@@ -1393,7 +1441,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let totalAllTimeIncome = 0;
       let totalAllTimeExpenses = 0;
       loadedTransactions.forEach(tx => {
-        if (tx.exclude_from_dash) return; // Skip excluded transactions for balance
+        if (tx.exclude_from_dash || tx.is_business) return; // Skip excluded and business transactions for balance
         if (tx.amount > 0) {
           totalAllTimeIncome += tx.amount;
         } else {
@@ -1413,6 +1461,7 @@ document.addEventListener('DOMContentLoaded', () => {
     kpiExpenses.textContent = formatCurrency(monthlyExpenses);
     kpiBalance.textContent = formatCurrency(balance);
     kpiSavings.textContent = `${savingsRate}%`;
+    if (kpiBusiness) kpiBusiness.textContent = formatCurrency(monthlyBusinessExpenses);
 
     // Render table
     renderTable();
@@ -1449,7 +1498,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let metasSum = 0;
 
     filteredTxs.forEach(tx => {
-      if (tx.amount < 0 && !tx.exclude_from_dash && !isTransferOrCardPayment(tx)) {
+      if (tx.amount < 0 && !tx.exclude_from_dash && !isTransferOrCardPayment(tx) && !tx.is_business) {
         const block = tx.budget_block || categoryToBlockMap[tx.actual_category || tx.expected_category] || 'Necessidade';
         if (block === 'Necessidade') {
           needsSum += Math.abs(tx.amount);
@@ -1897,7 +1946,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let goalExpenses = 0;
     
     filteredTxs.forEach(tx => {
-      if (tx.amount < 0 && !tx.exclude_from_dash && !isTransferOrCardPayment(tx)) {
+      if (tx.amount < 0 && !tx.exclude_from_dash && !isTransferOrCardPayment(tx) && !tx.is_business) {
         const block = tx.budget_block || categoryToBlockMap[tx.actual_category || tx.expected_category] || 'Necessidade';
         if (block === 'Necessidade') essentialExpenses += Math.abs(tx.amount);
         else if (block === 'Desejo') wantExpenses += Math.abs(tx.amount);
@@ -2052,7 +2101,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let autoEssentialSum = 0;
     filteredTxs.forEach(tx => {
       const block = tx.budget_block || categoryToBlockMap[tx.actual_category || tx.expected_category] || 'Necessidade';
-      if (block === 'Necessidade' && tx.amount < 0 && !tx.exclude_from_dash && !isTransferOrCardPayment(tx)) {
+      if (block === 'Necessidade' && tx.amount < 0 && !tx.exclude_from_dash && !isTransferOrCardPayment(tx) && !tx.is_business) {
         autoEssentialSum += Math.abs(tx.amount);
       }
     });
