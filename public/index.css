@@ -1148,4 +1148,41 @@ body {
   display: none;
 }
 
+/* Custom Spec 1.0 Additions */
+.sub-tab-btn {
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.sub-tab-btn.btn-primary {
+  background-color: var(--accent-purple) !important;
+  box-shadow: 0 4px 12px var(--accent-purple-glow);
+  color: #ffffff !important;
+}
+
+.sub-tab-btn.btn-secondary {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  color: var(--text-muted) !important;
+  border-color: var(--border-color) !important;
+}
+
+.sub-tab-btn.btn-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+.tx-row-excluded {
+  opacity: 0.45;
+}
+
+.tx-row-excluded td {
+  text-decoration: line-through;
+  color: var(--text-muted) !important;
+}
+
+.tx-row-excluded:hover {
+  opacity: 0.8;
+}
+
 

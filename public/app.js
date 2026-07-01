@@ -76,13 +76,95 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Top Merchants Element
   const topMerchantsList = document.getElementById('top-merchants-list');
+
+  // Spec 1.0 Selectors
+  const scoreValue = document.getElementById('score-value');
+  const scoreBadge = document.getElementById('score-badge');
+  const scoreText = document.getElementById('score-text');
+  const scoreGauge = document.getElementById('score-gauge');
+  const scoreCenterText = document.getElementById('score-center-text');
+
+  const budget50Value = document.getElementById('budget-50-value');
+  const budget50Pct = document.getElementById('budget-50-pct');
+  const budget50Bar = document.getElementById('budget-50-bar');
+  const budget50TargetPct = document.getElementById('budget-50-target-pct');
+  const budget30Value = document.getElementById('budget-30-value');
+  const budget30Pct = document.getElementById('budget-30-pct');
+  const budget30Bar = document.getElementById('budget-30-bar');
+  const budget30TargetPct = document.getElementById('budget-30-target-pct');
+  const budget20Value = document.getElementById('budget-20-value');
+  const budget20Pct = document.getElementById('budget-20-pct');
+  const budget20Bar = document.getElementById('budget-20-bar');
+  const budget20TargetPct = document.getElementById('budget-20-target-pct');
+  const budgetMethodLabel = document.getElementById('budget-method-label');
+
+  const emergencySavedValue = document.getElementById('emergency-saved-value');
+  const emergencyTargetValue = document.getElementById('emergency-target-value');
+  const emergencyProgressBar = document.getElementById('emergency-progress-bar');
+  const emergencyMonthsCovered = document.getElementById('emergency-months-covered');
+  const emergencyPctLabel = document.getElementById('emergency-pct-label');
+  const emergencyEssentialExpenses = document.getElementById('emergency-essential-expenses');
+  const emergencyMonths = document.getElementById('emergency-months');
+  const emergencySuggestedLabel = document.getElementById('emergency-suggested-label');
+  const btnUseAutoExpenses = document.getElementById('btn-use-auto-expenses');
+  const btnDepositEmergency = document.getElementById('btn-deposit-emergency');
+
+  const debtsList = document.getElementById('debts-list');
+  const debtExtraBudget = document.getElementById('debt-extra-budget');
+  const debtCalculatedExtraLabel = document.getElementById('debt-calculated-extra-label');
+  const debtSimulationResults = document.getElementById('debt-simulation-results');
+  const btnNewDebt = document.getElementById('btn-new-debt');
+
+  const debtModal = document.getElementById('debt-modal');
+  const closeDebtModal = document.getElementById('close-debt-modal');
+  const btnCancelDebt = document.getElementById('btn-cancel-debt');
+  const btnSaveDebt = document.getElementById('btn-save-debt');
+  const debtIdVal = document.getElementById('debt-id-val');
+  const debtName = document.getElementById('debt-name');
+  const debtBalance = document.getElementById('debt-balance');
+  const debtRate = document.getElementById('debt-rate');
+  const debtPayment = document.getElementById('debt-payment');
+
+  const profileStartingBalance = document.getElementById('profile-starting-balance');
+  const profileMonthlyIncome = document.getElementById('profile-monthly-income');
+  const profileWork = document.getElementById('profile-work');
   
   // State
   let loadedTransactions = [];
   let loadedGoals = [];
   let loadedBudgets = [];
   let loadedRecurring = [];
+  let loadedDebts = [];
+  let userProfile = {
+    monthly_income: 0.00,
+    starting_balance: 0.00,
+    work_profile: 'CLT',
+    budget_method: '50-30-20'
+  };
   let expensesChart = null;
+
+  const categoryToBlockMap = {
+    'Moradia': 'Necessidade',
+    'Alimentação': 'Necessidade',
+    'Transporte': 'Necessidade',
+    'Saúde': 'Necessidade',
+    'Educação': 'Necessidade',
+    'Contas Fixas': 'Necessidade',
+    'Lazer': 'Desejo',
+    'Vestuário': 'Desejo',
+    'Delivery / Comer fora': 'Desejo',
+    'Assinaturas': 'Desejo',
+    'Compras Online': 'Desejo',
+    'Investimentos': 'Meta',
+    'Reserva': 'Meta',
+    'Poupança': 'Meta',
+    'Assinaturas & Serviços': 'Desejo',
+    'Supermercado': 'Necessidade',
+    'Compras': 'Desejo',
+    'Combustível': 'Necessidade',
+    'Lazer & Entretenimento': 'Desejo',
+    'Outros': 'Desejo'
+  };
 
   // V2 Tab Manager
   const views = document.querySelectorAll('.view-section');
@@ -160,6 +242,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Planning Sub Tabs Toggle
+  const subTabBtns = document.querySelectorAll('.sub-tab-btn');
+  const subViews = document.querySelectorAll('.sub-view-section, .sub-view-content');
+
+  subTabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetSub = btn.getAttribute('data-sub');
+      
+      subTabBtns.forEach(b => {
+        b.classList.remove('btn-primary');
+        b.classList.add('btn-secondary');
+      });
+      btn.classList.remove('btn-secondary');
+      btn.classList.add('btn-primary');
+
+      subViews.forEach(v => {
+        if (v.id === `sub-${targetSub}`) {
+          v.style.display = 'block';
+        } else {
+          v.style.display = 'none';
+        }
+      });
+    });
+  });
+
   // Set default view on load
   switchTab('section-dashboard');
 
@@ -179,10 +286,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Startup fetches
   loadSettings();
+  loadUserProfile();
   loadSavedTransactions();
   loadGoals();
   loadBudgets();
   loadRecurring();
+  loadDebts();
 
   // Fetch functions
   async function loadSavedTransactions() {
@@ -205,6 +314,34 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (err) {
       addLog(`[ERRO] Falha ao carregar transações salvas: ${err.message}`, 'error-line');
+    }
+  }
+
+  async function loadUserProfile() {
+    try {
+      const response = await fetch('/api/profile');
+      if (response.ok) {
+        userProfile = await response.json();
+        if (profileStartingBalance) profileStartingBalance.value = userProfile.starting_balance || 0;
+        if (profileMonthlyIncome) profileMonthlyIncome.value = userProfile.monthly_income || 0;
+        if (profileWork) profileWork.value = userProfile.work_profile || 'CLT';
+        updateDashboard();
+      }
+    } catch (err) {
+      console.error('Erro ao carregar perfil do usuário:', err);
+    }
+  }
+
+  async function loadDebts() {
+    try {
+      const response = await fetch('/api/debts');
+      if (response.ok) {
+        loadedDebts = await response.json();
+        renderDebts();
+        updateDashboard();
+      }
+    } catch (err) {
+      console.error('Erro ao carregar dívidas:', err);
     }
   }
 
@@ -366,14 +503,45 @@ document.addEventListener('DOMContentLoaded', () => {
   closeSettings.addEventListener('click', closeModal);
   btnCancelSettings.addEventListener('click', closeModal);
   
-  btnSaveSettings.addEventListener('click', () => {
+  btnSaveSettings.addEventListener('click', async () => {
     localStorage.setItem('key_gemini', keyGemini.value.trim());
-    addLog('[SISTEMA] Configurações de chaves de API salvas localmente.', 'success-line');
+    
+    const payload = {
+      starting_balance: parseFloat(profileStartingBalance.value) || 0,
+      monthly_income: parseFloat(profileMonthlyIncome.value) || 0,
+      work_profile: profileWork.value || 'CLT',
+      budget_method: '50-30-20'
+    };
+
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (response.ok) {
+        userProfile = await response.json();
+        addLog('[SISTEMA] Perfil financeiro e chaves de API salvos com sucesso.', 'success-line');
+      } else {
+        throw new Error('Falha ao salvar perfil no servidor.');
+      }
+    } catch (err) {
+      console.error('Falha ao persistir perfil:', err);
+      userProfile = payload;
+      addLog('[SISTEMA] Configurações salvas localmente (banco offline).', 'success-line');
+    }
+
+    updateDashboard();
     closeModal();
   });
 
   function loadSettings() {
     keyGemini.value = localStorage.getItem('key_gemini') || '';
+    if (profileStartingBalance) profileStartingBalance.value = userProfile.starting_balance || 0;
+    if (profileMonthlyIncome) profileMonthlyIncome.value = userProfile.monthly_income || 0;
+    if (profileWork) profileWork.value = userProfile.work_profile || 'CLT';
   }
 
   // Budget Modal Control
@@ -466,6 +634,128 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error(err);
     }
   });
+
+  // --- DEBT MODAL & INPUT CONTROLS ---
+  if (btnNewDebt) {
+    btnNewDebt.addEventListener('click', () => {
+      debtIdVal.value = '';
+      debtName.value = '';
+      debtBalance.value = '';
+      debtRate.value = '';
+      debtPayment.value = '';
+      if (document.getElementById('debt-modal-title')) {
+        document.getElementById('debt-modal-title').textContent = 'Nova Dívida';
+      }
+      debtModal.style.display = 'flex';
+    });
+  }
+
+  const closeDebt = () => {
+    if (debtModal) debtModal.style.display = 'none';
+  };
+  if (closeDebtModal) closeDebtModal.addEventListener('click', closeDebt);
+  if (btnCancelDebt) btnCancelDebt.addEventListener('click', closeDebt);
+
+  if (btnSaveDebt) {
+    btnSaveDebt.addEventListener('click', async () => {
+      const name = debtName.value.trim();
+      const balanceVal = parseFloat(debtBalance.value);
+      const interestVal = parseFloat(debtRate.value);
+      const paymentVal = parseFloat(debtPayment.value);
+      const id = debtIdVal.value;
+
+      if (!name || isNaN(balanceVal) || balanceVal <= 0 || isNaN(interestVal) || isNaN(paymentVal)) {
+        alert('Por favor, preencha todos os campos obrigatórios corretamente.');
+        return;
+      }
+
+      const payload = {
+        name,
+        balance: balanceVal,
+        interest_rate: interestVal,
+        minimum_payment: paymentVal
+      };
+
+      try {
+        const method = id ? 'PUT' : 'POST';
+        const url = id ? `/api/debts/${id}` : '/api/debts';
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          loadedDebts = await response.json();
+          renderDebts();
+          updateDashboard();
+          closeDebt();
+        } else {
+          alert('Erro ao salvar dívida no servidor.');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  }
+
+  // Extra debt payoff input trigger
+  if (debtExtraBudget) {
+    debtExtraBudget.addEventListener('input', () => {
+      calculateDebtSimulations();
+    });
+  }
+
+  // --- EMERGENCY FUND INPUTS CONTROLS ---
+  if (emergencyEssentialExpenses) {
+    emergencyEssentialExpenses.addEventListener('input', () => {
+      calculateEmergencyFund();
+    });
+  }
+  if (emergencyMonths) {
+    emergencyMonths.addEventListener('input', () => {
+      calculateEmergencyFund();
+    });
+  }
+
+  if (btnUseAutoExpenses) {
+    btnUseAutoExpenses.addEventListener('click', () => {
+      // Find Needs sum
+      const filteredTxs = getFilteredTransactions();
+      let autoNeeds = 0;
+      filteredTxs.forEach(tx => {
+        const block = tx.budget_block || categoryToBlockMap[tx.actual_category || tx.expected_category] || 'Necessidade';
+        if (block === 'Necessidade' && tx.amount < 0 && !tx.exclude_from_dash && !isTransferOrCardPayment(tx)) {
+          autoNeeds += Math.abs(tx.amount);
+        }
+      });
+      emergencyEssentialExpenses.value = autoNeeds.toFixed(2);
+      calculateEmergencyFund();
+    });
+  }
+
+  if (btnDepositEmergency) {
+    btnDepositEmergency.addEventListener('click', () => {
+      // Open goal modal pre-filled
+      goalIdVal.value = '';
+      goalNameVal.value = 'Reserva de Emergência';
+      
+      const essentialExpenses = parseFloat(emergencyEssentialExpenses.value) || 0;
+      const monthsOfCover = parseFloat(emergencyMonths.value) || 6;
+      const targetVal = essentialExpenses * monthsOfCover;
+      goalTargetVal.value = targetVal.toFixed(2);
+      
+      // Target date in 1 year
+      const nextYear = new Date();
+      nextYear.setFullYear(nextYear.getFullYear() + 1);
+      goalDateVal.value = nextYear.toISOString().substring(0, 10);
+
+      if (document.getElementById('goal-modal-title')) {
+        document.getElementById('goal-modal-title').textContent = 'Criar Caixinha de Reserva';
+      }
+      goalModal.style.display = 'flex';
+    });
+  }
 
   async function deleteGoal(id) {
     try {
@@ -948,24 +1238,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     displayedTxs.forEach(tx => {
       const row = document.createElement('tr');
-      const category = tx.status === 'Processado' ? (tx.actual_category || 'Outros') : (tx.expected_category || 'Outros');
-      
-      let statusHtml = '';
-      if (tx.status === 'Processado') {
-        statusHtml = `
-          <span class="status-badge correct">
-            <span class="status-indicator"></span>
-            Processado por IA
-          </span>
-        `;
-      } else {
-        statusHtml = `
-          <span class="status-badge" style="color: var(--accent-amber)">
-            <span class="status-indicator" style="background-color: var(--accent-amber)"></span>
-            Pendente
-          </span>
-        `;
+      if (tx.exclude_from_dash) {
+        row.classList.add('tx-row-excluded');
       }
+      
+      const category = tx.status === 'Processado' ? (tx.actual_category || 'Outros') : (tx.expected_category || 'Outros');
 
       // Generate select dropdown for inline categorization
       const selectHtml = `
@@ -984,7 +1261,12 @@ document.addEventListener('DOMContentLoaded', () => {
           ${formatCurrency(tx.amount)}
         </td>
         <td>${selectHtml}</td>
-        <td>${statusHtml}</td>
+        <td style="text-align: center;">
+          <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted);">
+            <input type="checkbox" class="tx-exclude-chk" data-tx-id="${tx.id}" ${tx.exclude_from_dash ? 'checked' : ''} style="cursor: pointer;">
+            <span>Ignorar</span>
+          </label>
+        </td>
       `;
 
       // Bind in-table recategorization change
@@ -992,6 +1274,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const id = e.target.getAttribute('data-tx-id');
         const newCategory = e.target.value;
         recategorizeTransaction(id, newCategory);
+      });
+
+      // Bind exclude toggle checkbox
+      row.querySelector('.tx-exclude-chk').addEventListener('change', async (e) => {
+        const id = e.target.getAttribute('data-tx-id');
+        const checked = e.target.checked;
+        try {
+          const res = await fetch(`/api/transactions/${id}/exclude`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ exclude_from_dash: checked })
+          });
+          if (res.ok) {
+            const updated = await res.json();
+            loadedTransactions = sanitizeTransactions(updated);
+            renderTable();
+            updateDashboard();
+          }
+        } catch (err) {
+          console.error('Erro ao atualizar exclusão da transação:', err);
+        }
       });
 
       tableBody.appendChild(row);
@@ -1071,7 +1374,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let monthlyExpenses = 0;
 
     filteredTxs.forEach(tx => {
-      if (isTransferOrCardPayment(tx)) return;
+      if (isTransferOrCardPayment(tx) || tx.exclude_from_dash) return;
       
       if (tx.amount > 0) {
         monthlyIncome += tx.amount;
@@ -1090,6 +1393,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let totalAllTimeIncome = 0;
       let totalAllTimeExpenses = 0;
       loadedTransactions.forEach(tx => {
+        if (tx.exclude_from_dash) return; // Skip excluded transactions for balance
         if (tx.amount > 0) {
           totalAllTimeIncome += tx.amount;
         } else {
@@ -1097,7 +1401,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
       const totalGoalsSaved = loadedGoals.reduce((sum, g) => sum + parseFloat(g.current_amount || 0), 0);
-      balance = totalAllTimeIncome - totalAllTimeExpenses - totalGoalsSaved;
+      balance = (parseFloat(userProfile.starting_balance) || 0) + totalAllTimeIncome - totalAllTimeExpenses - totalGoalsSaved;
     } else {
       if (kpiBalanceLabel) kpiBalanceLabel.textContent = 'Saldo do Mês';
       balance = monthlyIncome - monthlyExpenses;
@@ -1124,13 +1428,78 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Render Forecast / cash flow
     renderForecast(balance);
+
+    // Render 50-30-20 budget progress bars
+    render503020Budget(filteredTxs, monthlyIncome);
+
+    // Render Health Score (0-100)
+    calculateHealthScore(monthlyIncome, monthlyExpenses, filteredTxs);
+
+    // Spec 1.0 Additions
+    calculateEmergencyFund();
+    renderDebts();
+  }
+
+  // Helper to render 50-30-20 budget bars
+  function render503020Budget(filteredTxs, monthlyIncome) {
+    const income = parseFloat(userProfile.monthly_income) || monthlyIncome || 0;
+    
+    let needsSum = 0;
+    let wantsSum = 0;
+    let metasSum = 0;
+
+    filteredTxs.forEach(tx => {
+      if (tx.amount < 0 && !tx.exclude_from_dash && !isTransferOrCardPayment(tx)) {
+        const block = tx.budget_block || categoryToBlockMap[tx.actual_category || tx.expected_category] || 'Necessidade';
+        if (block === 'Necessidade') {
+          needsSum += Math.abs(tx.amount);
+        } else if (block === 'Desejo') {
+          wantsSum += Math.abs(tx.amount);
+        } else if (block === 'Meta') {
+          metasSum += Math.abs(tx.amount);
+        }
+      }
+    });
+
+    if (budgetMethodLabel) {
+      budgetMethodLabel.textContent = `Perfil: ${userProfile.work_profile || 'CLT'} (Renda Ref: ${formatCurrency(income)})`;
+    }
+
+    const needsLimit = income * 0.5;
+    const wantsLimit = income * 0.3;
+    const metasLimit = income * 0.2;
+
+    if (budget50Value) budget50Value.textContent = `${formatCurrency(needsSum)} / ${formatCurrency(needsLimit)}`;
+    if (budget30Value) budget30Value.textContent = `${formatCurrency(wantsSum)} / ${formatCurrency(wantsLimit)}`;
+    if (budget20Value) budget20Value.textContent = `${formatCurrency(metasSum)} / ${formatCurrency(metasLimit)}`;
+
+    const needsPctVal = needsLimit > 0 ? Math.min((needsSum / needsLimit) * 100, 200) : 0;
+    const wantsPctVal = wantsLimit > 0 ? Math.min((wantsSum / wantsLimit) * 100, 200) : 0;
+    const metasPctVal = metasLimit > 0 ? Math.min((metasSum / metasLimit) * 100, 200) : 0;
+
+    if (budget50Pct) budget50Pct.textContent = `(${needsPctVal.toFixed(0)}%)`;
+    if (budget30Pct) budget30Pct.textContent = `(${wantsPctVal.toFixed(0)}%)`;
+    if (budget20Pct) budget20Pct.textContent = `(${metasPctVal.toFixed(0)}%)`;
+
+    if (budget50Bar) {
+      budget50Bar.style.width = `${Math.min(needsPctVal, 100)}%`;
+      budget50Bar.style.backgroundColor = needsPctVal > 100 ? '#ef4444' : 'var(--accent-indigo)';
+    }
+    if (budget30Bar) {
+      budget30Bar.style.width = `${Math.min(wantsPctVal, 100)}%`;
+      budget30Bar.style.backgroundColor = wantsPctVal > 100 ? '#ef4444' : 'var(--accent-pink)';
+    }
+    if (budget20Bar) {
+      budget20Bar.style.width = `${Math.min(metasPctVal, 100)}%`;
+      budget20Bar.style.backgroundColor = metasPctVal > 100 ? '#ef4444' : 'var(--accent-emerald)';
+    }
   }
 
   // Render Expense Distribution Chart
   function renderChart(transactionsList) {
     const categoriesMap = {};
     transactionsList.forEach(tx => {
-      if (isTransferOrCardPayment(tx)) return;
+      if (isTransferOrCardPayment(tx) || tx.exclude_from_dash) return;
       const category = tx.status === 'Processado' ? (tx.actual_category || 'Outros') : (tx.expected_category || 'Outros');
       if (tx.amount < 0) {
         categoriesMap[category] = (categoriesMap[category] || 0) + Math.abs(tx.amount);
@@ -1205,7 +1574,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let totalExpense = 0;
 
     transactionsList.forEach(tx => {
-      if (isTransferOrCardPayment(tx)) return;
+      if (isTransferOrCardPayment(tx) || tx.exclude_from_dash) return;
       if (tx.amount < 0) {
         const desc = tx.description.toUpperCase().trim();
         merchants[desc] = (merchants[desc] || 0) + Math.abs(tx.amount);
@@ -1246,7 +1615,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const spentByCategory = {};
 
     transactionsList.forEach(tx => {
-      if (tx.amount < 0) {
+      if (tx.amount < 0 && !tx.exclude_from_dash && !isTransferOrCardPayment(tx)) {
         const cat = tx.status === 'Processado' ? (tx.actual_category || 'Outros') : (tx.expected_category || 'Outros');
         spentByCategory[cat] = (spentByCategory[cat] || 0) + Math.abs(tx.amount);
       }
@@ -1515,6 +1884,411 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     forecastTimeline.appendChild(recContainer);
+  }
+
+  // --- HEALTH SCORE CALCULATION ENGINE ---
+  function calculateHealthScore(monthlyIncome, monthlyExpenses, filteredTxs) {
+    const income = parseFloat(userProfile.monthly_income) || monthlyIncome || 0;
+    
+    // 1. GASTAR (30%)
+    let gastarScore = 100;
+    let essentialExpenses = 0;
+    let wantExpenses = 0;
+    let goalExpenses = 0;
+    
+    filteredTxs.forEach(tx => {
+      if (tx.amount < 0 && !tx.exclude_from_dash && !isTransferOrCardPayment(tx)) {
+        const block = tx.budget_block || categoryToBlockMap[tx.actual_category || tx.expected_category] || 'Necessidade';
+        if (block === 'Necessidade') essentialExpenses += Math.abs(tx.amount);
+        else if (block === 'Desejo') wantExpenses += Math.abs(tx.amount);
+        else if (block === 'Meta') goalExpenses += Math.abs(tx.amount);
+      }
+    });
+
+    const totalSpent = essentialExpenses + wantExpenses + goalExpenses;
+    const burnRate = income > 0 ? (essentialExpenses / income) * 100 : (totalSpent > 0 ? 100 : 0);
+    
+    if (burnRate > 60) {
+      gastarScore -= Math.min(40, (burnRate - 60) * 1.5);
+    } else if (burnRate > 50) {
+      gastarScore -= (burnRate - 50) * 0.5;
+    }
+    
+    if (totalSpent > 0) {
+      const needPct = (essentialExpenses / totalSpent) * 100;
+      const wantPct = (wantExpenses / totalSpent) * 100;
+      if (needPct > 60) gastarScore -= 10;
+      if (wantPct > 40) gastarScore -= 10;
+    } else {
+      gastarScore = 50;
+    }
+    gastarScore = Math.max(0, Math.min(100, gastarScore));
+
+    // 2. POUPAR (30%)
+    let pouparScore = 0;
+    const savingsRate = income > 0 ? (((income - totalSpent) / income) * 100) : 0;
+    
+    if (savingsRate >= 20) pouparScore += 50;
+    else if (savingsRate > 0) pouparScore += (savingsRate / 20) * 50;
+
+    let reserveTarget = 0;
+    let reserveSaved = 0;
+    let profileWorkVal = userProfile.work_profile || 'CLT';
+    let suggestedMonths = 6;
+    if (profileWorkVal === 'Autonomo') suggestedMonths = 12;
+    else if (profileWorkVal === 'Publico') suggestedMonths = 4;
+    
+    const targetMonths = parseFloat(emergencyMonths.value) || suggestedMonths;
+    const monthlyNeeds = parseFloat(emergencyEssentialExpenses.value) || essentialExpenses;
+    reserveTarget = monthlyNeeds * targetMonths;
+    
+    loadedGoals.forEach(g => {
+      const name = g.name.toUpperCase();
+      if (name.includes('RESERVA') || name.includes('EMERGÊNCIA') || name.includes('EMERGENCIA') || name.includes('SEGURANÇA') || name.includes('SEGURANCA')) {
+        reserveSaved += parseFloat(g.current_amount || 0);
+      }
+    });
+
+    if (reserveTarget > 0) {
+      pouparScore += Math.min(50, (reserveSaved / reserveTarget) * 50);
+    } else {
+      pouparScore += 25;
+    }
+    pouparScore = Math.max(0, Math.min(100, pouparScore));
+
+    // 3. DEVER (20%)
+    let deverScore = 100;
+    if (loadedDebts.length > 0) {
+      let totalMinimums = 0;
+      let totalDebtBalance = 0;
+      loadedDebts.forEach(d => {
+        totalMinimums += parseFloat(d.minimum_payment || 0);
+        totalDebtBalance += parseFloat(d.balance || 0);
+      });
+      
+      const dti = income > 0 ? (totalMinimums / income) * 100 : 50;
+      if (dti >= 36) {
+        deverScore = 20;
+      } else if (dti > 15) {
+        deverScore = 100 - ((dti - 15) * 3);
+      }
+      if (income > 0) {
+        const debtToIncomeRatio = totalDebtBalance / income;
+        if (debtToIncomeRatio > 3) deverScore -= 20;
+      }
+    }
+    deverScore = Math.max(0, Math.min(100, deverScore));
+
+    // 4. PLANEJAR (20%)
+    let planejarScore = 20;
+    if (loadedGoals.length > 0) {
+      planejarScore += 30;
+      let totalProgress = 0;
+      loadedGoals.forEach(g => {
+        const target = parseFloat(g.target_amount) || 1;
+        const current = parseFloat(g.current_amount) || 0;
+        totalProgress += Math.min(100, (current / target) * 100);
+      });
+      planejarScore += (totalProgress / loadedGoals.length) * 0.5;
+    }
+    planejarScore = Math.max(0, Math.min(100, planejarScore));
+
+    const finalScore = Math.round(
+      (gastarScore * 0.3) + 
+      (pouparScore * 0.3) + 
+      (deverScore * 0.2) + 
+      (planejarScore * 0.2)
+    );
+
+    if (scoreValue) scoreValue.textContent = `${finalScore}/100`;
+    if (scoreCenterText) scoreCenterText.textContent = finalScore;
+
+    if (scoreGauge) {
+      const offset = 188.4 - (finalScore / 100) * 188.4;
+      scoreGauge.style.strokeDashoffset = offset;
+    }
+
+    let status = 'Estável';
+    let color = 'var(--accent-amber)';
+    let descText = 'Sua saúde financeira está estável, mas possui margem para melhoria. Comece a criar mais metas e reduza desejos.';
+    
+    if (finalScore >= 80) {
+      status = 'Saudável';
+      color = 'var(--accent-emerald)';
+      descText = 'Parabéns! Suas finanças estão sob controle. Você mantém um baixo Burn Rate e economiza regularmente.';
+    } else if (finalScore >= 60) {
+      status = 'Estável';
+      color = 'var(--accent-amber)';
+      descText = 'Sua situação é estável. Cuidado com despesas acessórias e garanta a quitação regular de dívidas se houver.';
+    } else if (finalScore >= 40) {
+      status = 'Atenção';
+      color = 'var(--accent-orange)';
+      descText = 'Atenção: seus custos fixos ou dívidas estão consumindo grande parte da sua renda. Evite novos gastos.';
+    } else {
+      status = 'Crítico';
+      color = 'var(--accent-pink)';
+      descText = 'Alerta: situação financeira crítica. Recomendamos rever todos os seus custos de desejos e acelerar a quitação de dívidas.';
+    }
+
+    if (scoreBadge) {
+      scoreBadge.textContent = status;
+      scoreBadge.style.backgroundColor = color;
+    }
+    if (scoreText) scoreText.textContent = descText;
+  }
+
+  // --- EMERGENCY FUND ---
+  function calculateEmergencyFund() {
+    const profileWorkVal = userProfile.work_profile || 'CLT';
+    let suggestedMonths = 6;
+    if (profileWorkVal === 'Autonomo') suggestedMonths = 12;
+    else if (profileWorkVal === 'Publico') suggestedMonths = 4;
+
+    if (emergencySuggestedLabel) {
+      emergencySuggestedLabel.textContent = `Sugerido: ${suggestedMonths} meses (${profileWorkVal})`;
+    }
+
+    const filteredTxs = getFilteredTransactions();
+    let autoEssentialSum = 0;
+    filteredTxs.forEach(tx => {
+      const block = tx.budget_block || categoryToBlockMap[tx.actual_category || tx.expected_category] || 'Necessidade';
+      if (block === 'Necessidade' && tx.amount < 0 && !tx.exclude_from_dash && !isTransferOrCardPayment(tx)) {
+        autoEssentialSum += Math.abs(tx.amount);
+      }
+    });
+
+    if (emergencyEssentialExpenses && !emergencyEssentialExpenses.value) {
+      emergencyEssentialExpenses.value = autoEssentialSum.toFixed(2);
+    }
+
+    const essentialExpenses = parseFloat(emergencyEssentialExpenses ? emergencyEssentialExpenses.value : 0) || 0;
+    const monthsOfCover = parseFloat(emergencyMonths ? emergencyMonths.value : suggestedMonths) || suggestedMonths;
+    const targetValue = essentialExpenses * monthsOfCover;
+    if (emergencyTargetValue) emergencyTargetValue.textContent = formatCurrency(targetValue);
+
+    let savedValue = 0;
+    loadedGoals.forEach(g => {
+      const name = g.name.toUpperCase();
+      if (name.includes('RESERVA') || name.includes('EMERGÊNCIA') || name.includes('EMERGENCIA') || name.includes('SEGURANÇA') || name.includes('SEGURANCA')) {
+        savedValue += parseFloat(g.current_amount || 0);
+      }
+    });
+
+    if (emergencySavedValue) emergencySavedValue.textContent = formatCurrency(savedValue);
+
+    const pct = targetValue > 0 ? Math.min((savedValue / targetValue) * 100, 100) : 0;
+    if (emergencyProgressBar) emergencyProgressBar.style.width = `${pct}%`;
+    if (emergencyPctLabel) emergencyPctLabel.textContent = `${pct.toFixed(0)}% concluído`;
+
+    const monthsCovered = essentialExpenses > 0 ? (savedValue / essentialExpenses).toFixed(1) : '0.0';
+    if (emergencyMonthsCovered) emergencyMonthsCovered.textContent = `${monthsCovered} de ${monthsOfCover} meses cobertos`;
+  }
+
+  // --- DEBTS MANAGEMENT & SIMULATION ---
+  function renderDebts() {
+    if (!debtsList) return;
+    debtsList.innerHTML = '';
+    if (loadedDebts.length === 0) {
+      debtsList.innerHTML = `<p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 20px 0;">Nenhuma dívida cadastrada. Clique em "+ Adicionar Dívida" acima.</p>`;
+      calculateDebtSimulations();
+      return;
+    }
+
+    loadedDebts.forEach(d => {
+      const item = document.createElement('div');
+      item.style.display = 'flex';
+      item.style.flexDirection = 'column';
+      item.style.gap = '8px';
+      item.style.background = 'rgba(255, 255, 255, 0.02)';
+      item.style.padding = '16px';
+      item.style.borderRadius = '12px';
+      item.style.border = '1px solid var(--border-color)';
+
+      item.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <strong style="color: #ffffff; font-size: 14px;">${d.name}</strong>
+            <span style="font-size: 11px; color: var(--text-muted); margin-left: 8px;">Juros: ${d.interest_rate}% a.m.</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-edit-debt btn btn-secondary btn-sm" data-id="${d.id}" style="font-size: 11px; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Editar</button>
+            <button class="btn-delete-debt btn btn-danger btn-sm" data-id="${d.id}" style="font-size: 11px; padding: 4px 8px; border-radius: 4px; background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.25); color: #ef4444; cursor: pointer;">Excluir</button>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-top: 4px;">
+          <span style="color: var(--text-muted);">Devedor: <strong style="color: #ffffff;">${formatCurrency(d.balance)}</strong></span>
+          <span style="color: var(--text-muted);">Mínimo: <strong style="color: #ffffff;">${formatCurrency(d.minimum_payment)}</strong></span>
+        </div>
+      `;
+
+      item.querySelector('.btn-edit-debt').addEventListener('click', () => {
+        debtIdVal.value = d.id;
+        debtName.value = d.name;
+        debtBalance.value = d.balance;
+        debtRate.value = d.interest_rate;
+        debtPayment.value = d.minimum_payment;
+        if (document.getElementById('debt-modal-title')) {
+          document.getElementById('debt-modal-title').textContent = 'Editar Dívida';
+        }
+        debtModal.style.display = 'flex';
+      });
+
+      item.querySelector('.btn-delete-debt').addEventListener('click', async () => {
+        if (confirm(`Deseja excluir a dívida "${d.name}"?`)) {
+          try {
+            const res = await fetch(`/api/debts/${d.id}`, { method: 'DELETE' });
+            if (res.ok) {
+              loadedDebts = await res.json();
+              renderDebts();
+            }
+          } catch (err) {
+            console.error(err);
+          }
+        }
+      });
+
+      debtsList.appendChild(item);
+    });
+
+    calculateDebtSimulations();
+  }
+
+  function calculateDebtSimulations() {
+    if (!debtSimulationResults) return;
+    if (loadedDebts.length === 0) {
+      debtSimulationResults.innerHTML = `<p style="font-size: 12px; color: var(--text-muted); text-align: center; margin: 30px 0;">Cadastre suas dívidas para ver a simulação das estratégias.</p>`;
+      return;
+    }
+
+    const extra = parseFloat(debtExtraBudget ? debtExtraBudget.value : 0) || 0;
+    
+    // Avalanche
+    const avalancheDebts = loadedDebts.map(d => ({ ...d })).sort((a, b) => b.interest_rate - a.interest_rate);
+    const avalancheResult = simulatePayoff(avalancheDebts, extra);
+
+    // Snowball
+    const snowballDebts = loadedDebts.map(d => ({ ...d })).sort((a, b) => a.balance - b.balance);
+    const snowballResult = simulatePayoff(snowballDebts, extra);
+
+    const interestSaved = Math.max(0, snowballResult.totalInterest - avalancheResult.totalInterest);
+    const monthsSaved = Math.max(0, snowballResult.months - avalancheResult.months);
+
+    let comparisonHtml = '';
+    if (avalancheResult.impossible || snowballResult.impossible) {
+      comparisonHtml = `
+        <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.15); border-radius: 12px; padding: 16px; font-size: 12px; color: var(--accent-pink); line-height: 1.5;">
+          <strong>Aviso:</strong> O pagamento extra mensal mais as parcelas mínimas não são suficientes para cobrir os juros acumulados das dívidas. Aumente o valor extra mensal para simular com sucesso.
+        </div>
+      `;
+    } else {
+      comparisonHtml = `
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <strong style="color: var(--accent-indigo); font-size: 13px;">Método Avalanche (Foco em Juros)</strong>
+            <span style="font-size: 10px; background: rgba(99, 102, 241, 0.1); color: var(--accent-indigo); padding: 2px 6px; border-radius: 4px; font-weight: 700;">ECONÔMICO</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; margin-top: 4px;">
+            <div>
+              <span style="color: var(--text-muted); display: block;">Tempo de Quitação:</span>
+              <strong style="color: #ffffff; font-size: 16px;">${avalancheResult.months} meses</strong>
+            </div>
+            <div>
+              <span style="color: var(--text-muted); display: block;">Total Pago em Juros:</span>
+              <strong style="color: var(--accent-pink); font-size: 16px;">${formatCurrency(avalancheResult.totalInterest)}</strong>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; border-top: 1px solid var(--border-color); padding-top: 8px;">
+            Ordem de Foco: ${avalancheResult.order.join(' → ')}
+          </div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <strong style="color: var(--accent-pink); font-size: 13px;">Método Bola de Neve (Foco em Motivação)</strong>
+            <span style="font-size: 10px; background: rgba(236, 72, 153, 0.1); color: var(--accent-pink); padding: 2px 6px; border-radius: 4px; font-weight: 700;">VITÓRIAS RÁPIDAS</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; margin-top: 4px;">
+            <div>
+              <span style="color: var(--text-muted); display: block;">Tempo de Quitação:</span>
+              <strong style="color: #ffffff; font-size: 16px;">${snowballResult.months} meses</strong>
+            </div>
+            <div>
+              <span style="color: var(--text-muted); display: block;">Total Pago em Juros:</span>
+              <strong style="color: var(--accent-pink); font-size: 16px;">${formatCurrency(snowballResult.totalInterest)}</strong>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; border-top: 1px solid var(--border-color); padding-top: 8px;">
+            Ordem de Foco: ${snowballResult.order.join(' → ')}
+          </div>
+        </div>
+
+        <div style="background: rgba(34, 197, 94, 0.03); border: 1px solid rgba(34, 197, 94, 0.15); border-radius: 12px; padding: 14px; font-size: 12px; line-height: 1.4; color: var(--accent-emerald);">
+          <strong>💡 Análise Comparativa:</strong><br>
+          ${
+            interestSaved > 0 
+            ? `O método <strong>Avalanche</strong> economiza <strong>${formatCurrency(interestSaved)}</strong> em juros acumulados e quita as dívidas <strong>${monthsSaved} meses</strong> antes que o método Bola de Neve.`
+            : `Ambos os métodos possuem desempenhos parecidos devido ao perfil das dívidas. Escolha Bola de Neve se precisar de motivação inicial!`
+          }
+        </div>
+      `;
+    }
+
+    debtSimulationResults.innerHTML = comparisonHtml;
+  }
+
+  function simulatePayoff(sortedDebts, extraBudget) {
+    let currentDebts = sortedDebts.map(d => ({ ...d, currentBalance: d.balance }));
+    let months = 0;
+    let totalInterest = 0;
+    const order = sortedDebts.map(d => d.name);
+    
+    let impossible = false;
+
+    while (currentDebts.some(d => d.currentBalance > 0)) {
+      months++;
+      if (months > 240) {
+        impossible = true;
+        break;
+      }
+
+      let monthlyExtraPool = extraBudget;
+      
+      for (let i = 0; i < currentDebts.length; i++) {
+        const d = currentDebts[i];
+        if (d.currentBalance <= 0) continue;
+
+        const interest = d.currentBalance * (d.interest_rate / 100);
+        totalInterest += interest;
+        d.currentBalance += interest;
+
+        const payAmount = Math.min(d.currentBalance, d.minimum_payment);
+        d.currentBalance -= payAmount;
+        
+        if (interest > d.minimum_payment && d.currentBalance > d.balance * 2) {
+          impossible = true;
+        }
+      }
+
+      if (impossible) break;
+
+      for (let i = 0; i < currentDebts.length; i++) {
+        const d = currentDebts[i];
+        if (d.currentBalance <= 0) continue;
+
+        const extraPay = Math.min(d.currentBalance, monthlyExtraPool);
+        d.currentBalance -= extraPay;
+        monthlyExtraPool -= extraPay;
+
+        if (monthlyExtraPool <= 0) break;
+      }
+    }
+
+    return {
+      months,
+      totalInterest,
+      order,
+      impossible
+    };
   }
 
   // Format Helper Utilities

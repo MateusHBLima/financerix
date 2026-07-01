@@ -11,6 +11,13 @@ const PORT = process.env.PORT || 3000;
 let pool = null;
 let useDbFallback = true;
 let inMemoryTransactions = [];
+let inMemoryDebts = [];
+let inMemoryUserProfile = {
+  monthly_income: 0.00,
+  starting_balance: 0.00,
+  work_profile: 'CLT',
+  budget_method: '50-30-20'
+};
 let dbInitPromise = null;
 
 // Try to initialize PostgreSQL pool if DATABASE_URL is configured
@@ -37,6 +44,9 @@ if (process.env.DATABASE_URL) {
             status VARCHAR(50) DEFAULT 'Pendente'
           );
 
+          ALTER TABLE transactions ADD COLUMN IF NOT EXISTS budget_block VARCHAR(50) DEFAULT 'Necessidade';
+          ALTER TABLE transactions ADD COLUMN IF NOT EXISTS exclude_from_dash BOOLEAN DEFAULT FALSE;
+
           CREATE TABLE IF NOT EXISTS goals (
             id SERIAL PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
@@ -58,8 +68,24 @@ if (process.env.DATABASE_URL) {
             due_day INT NOT NULL,
             type VARCHAR(50) NOT NULL
           );
+
+          CREATE TABLE IF NOT EXISTS debts (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            balance DECIMAL(10, 2) NOT NULL,
+            interest_rate DECIMAL(5, 2) NOT NULL,
+            minimum_payment DECIMAL(10, 2) NOT NULL
+          );
+
+          CREATE TABLE IF NOT EXISTS user_profile (
+            id SERIAL PRIMARY KEY,
+            monthly_income DECIMAL(10, 2) DEFAULT 0.00,
+            starting_balance DECIMAL(10, 2) DEFAULT 0.00,
+            work_profile VARCHAR(50) DEFAULT 'CLT',
+            budget_method VARCHAR(50) DEFAULT '50-30-20'
+          );
         `);
-        console.log('Tables "transactions", "goals", "budgets" and "recurring_bills" ensured in PostgreSQL database.');
+        console.log('Tables "transactions", "goals", "budgets", "recurring_bills", "debts" and "user_profile" ensured in PostgreSQL database.');
       } catch (err) {
         console.error('Error creating/verifying database tables:', err.message);
         useDbFallback = true; // Fallback if table creation failed
@@ -335,6 +361,51 @@ app.get('/api/transactions', async (req, res) => {
   res.json(inMemoryTransactions);
 });
 
+function getBlockForCategory(category) {
+  if (!category) return 'Necessidade';
+  const cat = category.toLowerCase().trim();
+  if (
+    cat.includes('moradia') ||
+    cat.includes('alimentação') ||
+    cat.includes('alimentacao') ||
+    cat.includes('transporte') ||
+    cat.includes('saúde') ||
+    cat.includes('saude') ||
+    cat.includes('educação') ||
+    cat.includes('educacao') ||
+    cat.includes('contas fixas') ||
+    cat.includes('contas') ||
+    cat.includes('supermercado') ||
+    cat.includes('combustível') ||
+    cat.includes('combustivel')
+  ) {
+    return 'Necessidade';
+  }
+  if (
+    cat.includes('lazer') ||
+    cat.includes('vestuário') ||
+    cat.includes('vestuario') ||
+    cat.includes('delivery') ||
+    cat.includes('comer fora') ||
+    cat.includes('assinaturas') ||
+    cat.includes('assinatura') ||
+    cat.includes('compras online') ||
+    cat.includes('compras')
+  ) {
+    return 'Desejo';
+  }
+  if (
+    cat.includes('investimentos') ||
+    cat.includes('investimento') ||
+    cat.includes('reserva') ||
+    cat.includes('poupança') ||
+    cat.includes('poupanca')
+  ) {
+    return 'Meta';
+  }
+  return 'Necessidade'; // Default fallback
+}
+
 // Route to save transactions (overwrite existing)
 app.post('/api/transactions', async (req, res) => {
   const transactions = req.body;
@@ -347,9 +418,19 @@ app.post('/api/transactions', async (req, res) => {
       if (dbInitPromise) await dbInitPromise;
       await pool.query('DELETE FROM transactions');
       for (const tx of transactions) {
+        const block = tx.budget_block || getBlockForCategory(tx.actual_category || tx.expected_category);
         await pool.query(
-          'INSERT INTO transactions (date, description, amount, expected_category, actual_category, status) VALUES ($1, $2, $3, $4, $5, $6)',
-          [tx.date, tx.description, tx.amount, tx.expected_category, tx.actual_category || null, tx.status || 'Pendente']
+          'INSERT INTO transactions (date, description, amount, expected_category, actual_category, status, budget_block, exclude_from_dash) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+          [
+            tx.date, 
+            tx.description, 
+            tx.amount, 
+            tx.expected_category, 
+            tx.actual_category || null, 
+            tx.status || 'Pendente', 
+            block, 
+            tx.exclude_from_dash || false
+          ]
         );
       }
       const result = await pool.query('SELECT * FROM transactions ORDER BY id ASC');
@@ -362,7 +443,9 @@ app.post('/api/transactions', async (req, res) => {
   inMemoryTransactions = transactions.map((tx, idx) => ({
     ...tx,
     id: tx.id || (idx + 1),
-    status: tx.status || 'Pendente'
+    status: tx.status || 'Pendente',
+    budget_block: tx.budget_block || getBlockForCategory(tx.actual_category || tx.expected_category),
+    exclude_from_dash: tx.exclude_from_dash || false
   }));
   res.json(inMemoryTransactions);
 });
@@ -910,6 +993,226 @@ app.post('/api/parse-statement', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Falha no processador agêntico do Gemini: ' + error.message });
   }
+});
+
+// --- PROFILE ENDPOINTS ---
+app.get('/api/profile', async (req, res) => {
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      let result = await pool.query('SELECT * FROM user_profile LIMIT 1');
+      if (result.rows.length > 0) {
+        return res.json(result.rows[0]);
+      } else {
+        return res.json(inMemoryUserProfile);
+      }
+    } catch (err) {
+      console.warn('Warning: Database profile query failed.', err.message);
+    }
+  }
+  res.json(inMemoryUserProfile);
+});
+
+app.post('/api/profile', async (req, res) => {
+  const { monthly_income, starting_balance, work_profile, budget_method } = req.body;
+  const incomeVal = parseFloat(monthly_income) || 0;
+  const balanceVal = parseFloat(starting_balance) || 0;
+  const workVal = work_profile || 'CLT';
+  const methodVal = budget_method || '50-30-20';
+
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      let check = await pool.query('SELECT id FROM user_profile LIMIT 1');
+      if (check.rows.length > 0) {
+        await pool.query(
+          'UPDATE user_profile SET monthly_income = $1, starting_balance = $2, work_profile = $3, budget_method = $4 WHERE id = $5',
+          [incomeVal, balanceVal, workVal, methodVal, check.rows[0].id]
+        );
+      } else {
+        await pool.query(
+          'INSERT INTO user_profile (monthly_income, starting_balance, work_profile, budget_method) VALUES ($1, $2, $3, $4)',
+          [incomeVal, balanceVal, workVal, methodVal]
+        );
+      }
+      let result = await pool.query('SELECT * FROM user_profile LIMIT 1');
+      return res.json(result.rows[0]);
+    } catch (err) {
+      console.warn('Warning: Database profile save failed.', err.message);
+    }
+  }
+  
+  inMemoryUserProfile = {
+    monthly_income: incomeVal,
+    starting_balance: balanceVal,
+    work_profile: workVal,
+    budget_method: methodVal
+  };
+  res.json(inMemoryUserProfile);
+});
+
+// --- DEBTS ENDPOINTS ---
+app.get('/api/debts', async (req, res) => {
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      let result = await pool.query('SELECT * FROM debts ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database debts query failed.', err.message);
+    }
+  }
+  res.json(inMemoryDebts);
+});
+
+app.post('/api/debts', async (req, res) => {
+  const { name, balance, interest_rate, minimum_payment } = req.body;
+  if (!name || balance === undefined || interest_rate === undefined || minimum_payment === undefined) {
+    return res.status(400).json({ error: 'All fields are required.' });
+  }
+  const balanceVal = parseFloat(balance) || 0;
+  const rateVal = parseFloat(interest_rate) || 0;
+  const paymentVal = parseFloat(minimum_payment) || 0;
+
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      await pool.query(
+        'INSERT INTO debts (name, balance, interest_rate, minimum_payment) VALUES ($1, $2, $3, $4)',
+        [name, balanceVal, rateVal, paymentVal]
+      );
+      let result = await pool.query('SELECT * FROM debts ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database debt insertion failed.', err.message);
+    }
+  }
+  const newDebt = {
+    id: inMemoryDebts.length > 0 ? Math.max(...inMemoryDebts.map(d => d.id)) + 1 : 1,
+    name,
+    balance: balanceVal,
+    interest_rate: rateVal,
+    minimum_payment: paymentVal
+  };
+  inMemoryDebts.push(newDebt);
+  res.json(inMemoryDebts);
+});
+
+app.put('/api/debts/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, balance, interest_rate, minimum_payment } = req.body;
+  const balanceVal = balance !== undefined ? parseFloat(balance) : undefined;
+  const rateVal = interest_rate !== undefined ? parseFloat(interest_rate) : undefined;
+  const paymentVal = minimum_payment !== undefined ? parseFloat(minimum_payment) : undefined;
+
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      // Get current values
+      let currentResult = await pool.query('SELECT * FROM debts WHERE id = $1', [id]);
+      if (currentResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Debt not found.' });
+      }
+      const current = currentResult.rows[0];
+      await pool.query(
+        'UPDATE debts SET name = $1, balance = $2, interest_rate = $3, minimum_payment = $4 WHERE id = $5',
+        [
+          name || current.name,
+          balanceVal !== undefined ? balanceVal : current.balance,
+          rateVal !== undefined ? rateVal : current.interest_rate,
+          paymentVal !== undefined ? paymentVal : current.minimum_payment,
+          id
+        ]
+      );
+      let result = await pool.query('SELECT * FROM debts ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database debt update failed.', err.message);
+    }
+  }
+  const debtIdx = inMemoryDebts.findIndex(d => d.id === parseInt(id));
+  if (debtIdx > -1) {
+    inMemoryDebts[debtIdx] = {
+      id: parseInt(id),
+      name: name || inMemoryDebts[debtIdx].name,
+      balance: balanceVal !== undefined ? balanceVal : inMemoryDebts[debtIdx].balance,
+      interest_rate: rateVal !== undefined ? rateVal : inMemoryDebts[debtIdx].interest_rate,
+      minimum_payment: paymentVal !== undefined ? paymentVal : inMemoryDebts[debtIdx].minimum_payment
+    };
+    return res.json(inMemoryDebts);
+  }
+  res.status(404).json({ error: 'Debt not found.' });
+});
+
+app.delete('/api/debts/:id', async (req, res) => {
+  const { id } = req.params;
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      await pool.query('DELETE FROM debts WHERE id = $1', [id]);
+      let result = await pool.query('SELECT * FROM debts ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database debt delete failed.', err.message);
+    }
+  }
+  inMemoryDebts = inMemoryDebts.filter(d => d.id !== parseInt(id));
+  res.json(inMemoryDebts);
+});
+
+// --- TRANSACTION CUSTOMIZATIONS ENDPOINTS ---
+app.put('/api/transactions/:id/exclude', async (req, res) => {
+  const { id } = req.params;
+  const { exclude_from_dash } = req.body;
+  if (exclude_from_dash === undefined) {
+    return res.status(400).json({ error: 'exclude_from_dash value is required.' });
+  }
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      await pool.query(
+        'UPDATE transactions SET exclude_from_dash = $1 WHERE id = $2',
+        [!!exclude_from_dash, id]
+      );
+      let result = await pool.query('SELECT * FROM transactions ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database toggle exclude failed.', err.message);
+    }
+  }
+  const tx = inMemoryTransactions.find(t => t.id === parseInt(id));
+  if (tx) {
+    tx.exclude_from_dash = !!exclude_from_dash;
+    return res.json(inMemoryTransactions);
+  }
+  res.status(404).json({ error: 'Transaction not found.' });
+});
+
+app.put('/api/transactions/:id/block', async (req, res) => {
+  const { id } = req.params;
+  const { budget_block } = req.body;
+  if (!budget_block) {
+    return res.status(400).json({ error: 'budget_block value is required.' });
+  }
+  if (!useDbFallback && pool) {
+    try {
+      if (dbInitPromise) await dbInitPromise;
+      await pool.query(
+        'UPDATE transactions SET budget_block = $1 WHERE id = $2',
+        [budget_block, id]
+      );
+      let result = await pool.query('SELECT * FROM transactions ORDER BY id ASC');
+      return res.json(result.rows);
+    } catch (err) {
+      console.warn('Warning: Database update block failed.', err.message);
+    }
+  }
+  const tx = inMemoryTransactions.find(t => t.id === parseInt(id));
+  if (tx) {
+    tx.budget_block = budget_block;
+    return res.json(inMemoryTransactions);
+  }
+  res.status(404).json({ error: 'Transaction not found.' });
 });
 
 app.listen(PORT, () => {
